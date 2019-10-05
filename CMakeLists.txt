@@ -147,6 +147,7 @@ set (zperfmq_headers
 IF (ENABLE_DRAFTS)
     list(APPEND zperfmq_headers
         include/zecho.hpp
+        include/zplat.hpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -165,6 +166,7 @@ set (zperfmq_sources
 IF (ENABLE_DRAFTS)
     list (APPEND zperfmq_sources
         src/zecho.cpp
+        src/zplat.cpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -363,6 +365,7 @@ set(TEST_CLASSES
 IF (ENABLE_DRAFTS)
     list (APPEND TEST_CLASSES
     zecho
+    zplat
     )
 ENDIF (ENABLE_DRAFTS)
 
