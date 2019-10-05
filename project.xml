@@ -1,0 +1,17 @@
+<project script = "zproject.gsl"
+    description = "ZeroMQ performance measurement tool"
+    email = "brett.viren@gmail.com"
+    license = "GPL 3"
+    url = "https://github.com/brettviren/zperfmq"
+    repository = "https://github.com/brettviren/zperfmq"
+    >
+  <include filename = "license.xml" />
+  <version major = "0" minor = "0" patch = "0" />
+  <use project = "libzmq" />
+  <main name = "zperfmq"/>
+  <target name = "travis" >
+    <option name = "check_zproject" value = "1" />
+  </target>
+  <target name = "cmake">
+  </target>
+</project>
