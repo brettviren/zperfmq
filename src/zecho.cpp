@@ -57,7 +57,8 @@ zecho_destroy (zecho_t **self_p)
     if (*self_p) {
         zecho_t *self = *self_p;
 
-        //  TODO: Free actor properties
+        //  Free actor properties
+        zsock_destroy(&self->sock);
 
         //  Free object itself
         zpoller_destroy (&self->poller);
@@ -82,7 +83,7 @@ zecho_start (zecho_t *self, int nmsgs)
     }
 
     zmq_msg_t msg;
-    rc = zmq_msg_init (&msg);
+    int rc = zmq_msg_init (&msg);
     if (rc != 0) {
         zsys_error ("zecho: error in zmq_msg_init: %s\n", zmq_strerror (errno));
         return -1;
@@ -122,7 +123,7 @@ zecho_stop (zecho_t *self)
 
     const char* got_endpoint = zsock_endpoint(self->sock);
     if (got_endpoint) {
-        zsock_disconnect(slf->sock, "%s", got_endpoint);
+        zsock_disconnect(self->sock, "%s", got_endpoint);
     }
 
     return 0;
@@ -141,10 +142,10 @@ zecho_recv_api (zecho_t *self)
 
     char *command = zmsg_popstr (request);
     if (streq (command, "START")) {
-        char *value = zmsg_popstr (msg);
+        char *value = zmsg_popstr (request);
         int nmsgs = atoi(value);
         free (value);
-        int dt = zecho_start (self, nmsg);
+        int dt = zecho_start (self, nmsgs);
         zsock_send(self->pipe, "si", "START", dt);
     }
     else if (streq (command, "STOP")) {
@@ -163,7 +164,7 @@ zecho_recv_api (zecho_t *self)
             }
         }
         if (! got_endpoint) {
-            zsys_warning ("could not bind to %s", endpoint);
+            zsys_warning ("could not bind to %s", want_endpoint);
             zstr_sendm(self->pipe, "BIND");
             zstr_sendf(self->pipe, "");
         }
@@ -232,6 +233,38 @@ zecho_test (bool verbose)
     //  Simple create/destroy test
     zactor_t *zecho = zactor_new (zecho_actor, NULL);
     assert (zecho);
+
+    if (verbose) {
+        zstr_send(zecho, "VERBOSE");
+    }
+    zsock_send(zecho, "ss", "BIND", "tcp://127.0.0.1:*");
+    char* endpoint=NULL;
+    char* cmd = NULL;
+    zsock_recv(zecho, "ss", &cmd, &endpoint);
+    assert(streq(cmd, "BIND"));
+    free(cmd);
+    assert(endpoint);
+    zsys_info("bound to %s", endpoint);
+
+    const int nmsgs = 10000;
+    zsock_send(zecho, "si", "START", nmsgs);
+
+    zsock_t* echo = zsock_new_req(endpoint);
+    assert(echo);
+    free(endpoint);
+    for (int count=0; count < nmsgs; ++count) { 
+        zstr_send(echo, "hello");
+        char* reply = zstr_recv(echo);
+        assert(streq(reply,"hello"));
+        free (reply);
+    }
+    zsock_destroy(&echo);
+    
+    int dt=0;
+    zsock_recv(zecho, "si", NULL, &dt);
+    double dtsec = dt*1e-6;
+    zsys_info("%d msgs took %.3fs, %.3f Hz, %.3f us rtt",
+              nmsgs, dtsec, nmsgs/dtsec, double(dt)/nmsgs);
 
     zactor_destroy (&zecho);
     //  @end

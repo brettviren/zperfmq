@@ -10,14 +10,14 @@
   <include filename = "license.xml" />
   <version major = "0" minor = "0" patch = "0" />
   <use project = "czmq" language="C++"/>
-  <main name = "zperfmq"/>
   <classfilename use-cxx = "true" use-cxx-gcc-4-9 = "true"
                  source-extension = "cpp" header-extension = "hpp" />  
 
 
   <actor name = "zecho">A message echo service</actor>
-  <!-- 
   <actor name = "zplat">A round-trip latency measure</actor>
+  <!-- 
+  <main name = "zperfmq"/>
   <class name = "zperf"/>
   <class name = "zpray"/>
   <model name = "zpray"/>
