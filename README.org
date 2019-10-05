@@ -1,0 +1,31 @@
+#+title: zperfmq -- a ZeroMQ performance tester
+
+* Caveat
+
+This package is still a WIP, some of this readme is vaporware (or more charitably, todo notes).
+
+* Overview
+
+This package provides ways to measure ZeroMQ message throughput, latency, CPU and memory usage.
+
+The ~libzmq~ package itself provides some very useful performance tools.  The ZeroMQ wiki has guidance on [[http://wiki.zeromq.org/results:perf-howto][using them]] and some [[http://wiki.zeromq.org/area:results][results]] (see also the [[http://wiki.zeromq.org/whitepapers:measuring-performance][performance whitepaper]]).  The ~zperfmq~ package provides much of the same functionality with these additional goals:
+
+- bundle measuring functionality into one command line program (think of ~zperfmq~ as ~iperf3~ for ZeroMQ)
+- produce summary results more or less compatible with libzmq's built-in perf tools
+- produce results as time series in either batch or as a live stream
+- support multithreaded/multiconnect I/O technique needed to saturate high bandwidth links
+- provide support for generating plots (via Python module)
+
+* Implementation
+
+~zperfmq~ is a [[https://github.com/zeromq/czmq/][CZMQ]] program with elements built by [[https://github.com/zeromq/zproject/][zproject]] and [[https://github.com/zeromq/zproto][zproto]] and makes use of [[https://github.com/zeromq/zyre][Zyre]].
+
+* Networks
+
+A test consists of connecting multiple instances of ~zperfmq~ as nodes in a network.  Connections maybe be created using absolute ZeroMQ addressing or with Zyre discovery.  The networks may be generally categorized in two ways.
+
+- echo :: This network is query/response based.  A query node sends a message to a response node which echos it back.  A query node may use REQ or DEALER and a response node REP or ROUTER.  When the network has exactly two nodes, one using REQ and one using REP, it is equivalent to the use of ~local_lat~ and ~remote_lat~ programs from ~libzmq~.  These networks can be used to measure round-trip latency and throughput.
+
+- flow :: This network flows data from distinct senders to receivers.  The network may be made of PUSH/PULL or PUB/SUB sockets.  these networks can be used to measure single-leg throughput, message loss, and absolute single-leg latency to the accuracy allowed by clock synchronization.
+
+
