@@ -1,4 +1,6 @@
-<project script = "zproject.gsl"
+<project
+    name = "zperfmq"
+    script = "zproject.gsl"
     description = "ZeroMQ performance measurement tool"
     email = "brett.viren@gmail.com"
     license = "GPL 3"
@@ -7,8 +9,21 @@
     >
   <include filename = "license.xml" />
   <version major = "0" minor = "0" patch = "0" />
-  <use project = "libzmq" />
+  <use project = "czmq" language="C++"/>
   <main name = "zperfmq"/>
+  <classfilename use-cxx = "true" use-cxx-gcc-4-9 = "true"
+                 source-extension = "cpp" header-extension = "hpp" />  
+
+
+  <actor name = "zecho">A message echo service</actor>
+  <!-- 
+  <actor name = "zplat">A round-trip latency measure</actor>
+  <class name = "zperf"/>
+  <class name = "zpray"/>
+  <model name = "zpray"/>
+  <class name = "zpthr"/>
+  <model name = "zpthr"/>
+  -->
   <target name = "travis" >
     <option name = "check_zproject" value = "1" />
   </target>
