@@ -29,6 +29,8 @@ all_tests [] = {
 // Tests for draft public classes:
     { "zecho", zecho_test, false, true, NULL },
     { "zplat", zplat_test, false, true, NULL },
+    { "zpray", zpray_test, false, true, NULL },
+    { "zpthr", zpthr_test, false, true, NULL },
 #endif // ZPERFMQ_BUILD_DRAFT_API
     {NULL, NULL, 0, 0, NULL}          //  Sentinel
 };

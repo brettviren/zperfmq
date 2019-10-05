@@ -9,7 +9,9 @@ include_HEADERS = \
 if ENABLE_DRAFTS
 include_HEADERS += \
     zecho.hpp \
-    zplat.hpp
+    zplat.hpp \
+    zpray.hpp \
+    zpthr.hpp
 
 endif
 

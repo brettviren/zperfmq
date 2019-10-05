@@ -68,6 +68,10 @@ typedef struct _zecho_t zecho_t;
 #define ZECHO_T_DEFINED
 typedef struct _zplat_t zplat_t;
 #define ZPLAT_T_DEFINED
+typedef struct _zpray_t zpray_t;
+#define ZPRAY_T_DEFINED
+typedef struct _zpthr_t zpthr_t;
+#define ZPTHR_T_DEFINED
 #endif // ZPERFMQ_BUILD_DRAFT_API
 
 
@@ -75,6 +79,8 @@ typedef struct _zplat_t zplat_t;
 #ifdef ZPERFMQ_BUILD_DRAFT_API
 #include "zecho.hpp"
 #include "zplat.hpp"
+#include "zpray.hpp"
+#include "zpthr.hpp"
 #endif // ZPERFMQ_BUILD_DRAFT_API
 
 #ifdef ZPERFMQ_BUILD_DRAFT_API

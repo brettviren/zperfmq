@@ -16,14 +16,10 @@
 
   <actor name = "zecho">A message echo service</actor>
   <actor name = "zplat">A round-trip latency measure</actor>
-  <!-- 
-  <main name = "zperfmq"/>
-  <class name = "zperf"/>
-  <class name = "zpray"/>
-  <model name = "zpray"/>
-  <class name = "zpthr"/>
-  <model name = "zpthr"/>
-  -->
+
+  <actor name = "zpray">A message spray service</actor>  
+  <actor name = "zpthr">A throughput measure</actor>  
+
   <target name = "travis" >
     <option name = "check_zproject" value = "1" />
   </target>

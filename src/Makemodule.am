@@ -18,7 +18,9 @@ src_libzperfmq_la_SOURCES = \
 if ENABLE_DRAFTS
 src_libzperfmq_la_SOURCES += \
     src/zecho.cpp \
-    src/zplat.cpp
+    src/zplat.cpp \
+    src/zpray.cpp \
+    src/zpthr.cpp
 
 endif
 
