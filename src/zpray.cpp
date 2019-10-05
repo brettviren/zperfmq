@@ -98,6 +98,8 @@ zpray_start (zpray_t *self, int nmsgs, size_t msgsize)
     }
 
     zframe_t* frame = zframe_new(NULL, msgsize);
+    memset (zframe_data(frame), 0, zframe_size(frame));
+
 
     void* watch = zmq_stopwatch_start();
     for (int count = 0; count<nmsgs; ++count) {
@@ -248,25 +250,44 @@ zpray_test (bool verbose)
     zsys_info("bound to %s", endpoint);
 
     const int nmsgs = 10000;
-    const size_t msgsize = 2<<16;
+    const size_t msgsize = 1<<18;
     int rc = zsock_send(zpray, "si8", "START", nmsgs, msgsize);
     assert (rc == 0);
 
     zsock_t* sink = zsock_new(ZMQ_PULL);
     assert(sink);
-    rc = zsock_connect(sink, "%s", endpoint);
-    assert(rc==0);
+    int nconn = 1;
+    const char* var = getenv("ZPERFMQ_NCONNECTIONS");
+    if (var) {
+        nconn = atoi(var);
+        zsys_info("Using multiple connections (%d)", nconn);
+    }
+    var = getenv("ZSYS_IO_THREADS");
+    if (var) {
+        zsys_info("Using multiple I/O threads (%s)", var);
+    }
+    for (int iconn=0; iconn<nconn; ++iconn) {
+        rc = zsock_connect(sink, "%s", endpoint);
+        assert(rc==0);
+    }
     free(endpoint);
+    bool out_of_order = false;
     for (int count=0; count<nmsgs; ++count) {
         int got_count = 0;
         zframe_t* frame = NULL;
         rc = zsock_recv(sink, "if", &got_count, &frame);
         assert (rc == 0);
-        assert(count == got_count);
+        if (count != got_count) {
+            out_of_order = true;
+        }
+        //assert(count == got_count);
         assert(zframe_size(frame) == msgsize);
         zframe_destroy(&frame);
     }
     zsock_destroy(&sink);
+    if (out_of_order) {
+        zsys_warning("got out-of-order messages");
+    }
 
     int64_t dtus=0;
     int got_nmsgs=0;

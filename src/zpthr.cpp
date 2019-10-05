@@ -1,5 +1,5 @@
 /*  =========================================================================
-    zplat - A round-trip latency measure
+    zpthr - A throughput measure
 
     GPL 3.0
     =========================================================================
@@ -7,7 +7,7 @@
 
 /*
 @header
-    zplat - A round-trip latency measure
+    zpthr - A throughput measure
 @discuss
 @end
 */
@@ -16,46 +16,59 @@
 
 //  Structure of our actor
 
-struct _zplat_t {
+struct _zpthr_t {
     zsock_t *pipe;              //  Actor command pipe
     zpoller_t *poller;          //  Socket poller
     bool terminated;            //  Did caller ask us to quit?
     bool verbose;               //  Verbose logging enabled?
-
     //  Declare properties
     zsock_t* sock;
 };
 
 
 //  --------------------------------------------------------------------------
-//  Create a new zplat instance
+//  Create a new zpthr instance
 
-static zplat_t *
-zplat_new (zsock_t *pipe, void *args)
+static zpthr_t *
+zpthr_new (zsock_t *pipe, void *args)
 {
-    zplat_t *self = (zplat_t *) zmalloc (sizeof (zplat_t));
+    zpthr_t *self = (zpthr_t *) zmalloc (sizeof (zpthr_t));
     assert (self);
+
+    //  Initialize properties
+    const char* sock_name = (const char*) args;
+    if (!sock_name) {
+        sock_name = "PULL";
+    }
+    if (streq(sock_name, "PULL")) {
+        self->sock = zsock_new(ZMQ_PULL);
+    }
+    else if (streq(sock_name, "SUB")) {
+        self->sock = zsock_new(ZMQ_SUB);
+    }
+    else {
+        zsys_error("zpthr: uknown socket type: \"%s\"", sock_name);
+        free (self);
+        return 0;
+    }
 
     self->pipe = pipe;
     self->terminated = false;
     self->poller = zpoller_new (self->pipe, NULL);
-
-    //  Initialize properties
-    self->sock = zsock_new(ZMQ_REQ);
 
     return self;
 }
 
 
 //  --------------------------------------------------------------------------
-//  Destroy the zplat instance
+//  Destroy the zpthr instance
 
 static void
-zplat_destroy (zplat_t **self_p)
+zpthr_destroy (zpthr_t **self_p)
 {
     assert (self_p);
     if (*self_p) {
-        zplat_t *self = *self_p;
+        zpthr_t *self = *self_p;
 
         //  Free actor properties
         zsock_destroy(&self->sock);
@@ -68,55 +81,39 @@ zplat_destroy (zplat_t **self_p)
 }
 
 
-//  Start this actor and process nmsgs of the given size.  Return
-//  elapsed time in microsconds if successful. Otherwise -1.
+//  Start this actor. Return a value greater or equal to zero if initialization
+//  was successful. Otherwise -1.
 
-static int64_t
-zplat_start (zplat_t *self, int nmsgs, size_t message_size)
+static int
+zpthr_start (zpthr_t *self, int nmsgs)
 {
     assert (self);
 
-    //  Add startup actions
-    zmq_msg_t msg;
-    int rc = zmq_msg_init_size (&msg, message_size);
-    if (rc != 0) {
-        zsys_error ("zplat: error in zmq_msg_init: %s\n", zmq_strerror (errno));
-        return -1;
-    }
-    memset (zmq_msg_data (&msg), 0, message_size);
+    int64_t totdata=0;
 
-    void* s = zsock_resolve(self->sock);
     void* watch = NULL;
-    while (nmsgs) {
-        rc = zmq_sendmsg (s, &msg, 0);
-        if (rc < 0) {
-            zsys_error ("zplat: error in zmq_sendmsg: %s\n", zmq_strerror (errno));
-            return -1;
-        }
+
+    for (int count=0; count<nmsgs; ++count) {
+        int got_count = 0;
+        zframe_t* frame = NULL;
+        int rc = zsock_recv(self->sock, "if", &got_count, &frame);
+        assert (rc == 0);
+        assert(count == got_count);
+
         if (!watch) {
             watch = zmq_stopwatch_start ();
         }
-        rc = zmq_recvmsg (s, &msg, 0);
-        if (rc < 0) {
-            zsys_error ("zplat: error in zmq_recvmsg: %s\n", zmq_strerror (errno));
-            return -1;
-        }
-        if (zmq_msg_size (&msg) != message_size) {
-            zsys_error ("zplat: message of incorrect size received\n");
-            return -1;
-        }        
-        --nmsgs;
-    }
 
+        size_t siz = zframe_size(frame);
+        totdata += siz;
+        zframe_destroy(&frame);
+        // fixme: track skipped counts
+    }
     const int64_t elapsed = zmq_stopwatch_stop(watch);
 
-    rc = zmq_msg_close (&msg);
-    if (rc != 0) {
-        zsys_error ("zplat: error in zmq_msg_close: %s\n", zmq_strerror (errno));
-        return -1;
-    }
+    zsock_send(self->pipe, "si88", "START", nmsgs, totdata, elapsed);
 
-    return elapsed;
+    return 0;
 }
 
 
@@ -124,7 +121,7 @@ zplat_start (zplat_t *self, int nmsgs, size_t message_size)
 //  was successful. Otherwise -1.
 
 static int
-zplat_stop (zplat_t *self)
+zpthr_stop (zpthr_t *self)
 {
     assert (self);
 
@@ -137,7 +134,7 @@ zplat_stop (zplat_t *self)
 //  Here we handle incoming message from the node
 
 static void
-zplat_recv_api (zplat_t *self)
+zpthr_recv_api (zpthr_t *self)
 {
     //  Get the whole message of the pipe in one go
     zmsg_t *request = zmsg_recv (self->pipe);
@@ -149,14 +146,10 @@ zplat_recv_api (zplat_t *self)
         char *value = zmsg_popstr (request);
         const int nmsgs = atoi(value);
         free (value);
-        value = zmsg_popstr (request);
-        const size_t msgsize = atol(value);
-        free (value);
-        const int64_t dt = zplat_start (self, nmsgs, msgsize);
-        zsock_send(self->pipe, "si88", "START", nmsgs, msgsize, dt);
+        zpthr_start (self, nmsgs);
     }
     else if (streq (command, "STOP")) {
-        zplat_stop (self);
+        zpthr_stop (self);
     }
     else if (streq (command, "VERBOSE")) {
         self->verbose = true;
@@ -184,9 +177,9 @@ zplat_recv_api (zplat_t *self)
 //  This is the actor which runs in its own thread.
 
 void
-zplat_actor (zsock_t *pipe, void *args)
+zpthr_actor (zsock_t *pipe, void *args)
 {
-    zplat_t * self = zplat_new (pipe, args);
+    zpthr_t * self = zpthr_new (pipe, args);
     if (!self)
         return;          //  Interrupted
 
@@ -196,10 +189,10 @@ zplat_actor (zsock_t *pipe, void *args)
     while (!self->terminated) {
         zsock_t *which = (zsock_t *) zpoller_wait (self->poller, 0);
         if (which == self->pipe)
-            zplat_recv_api (self);
+            zpthr_recv_api (self);
        //  Add other sockets when you need them.
     }
-    zplat_destroy (&self);
+    zpthr_destroy (&self);
 }
 
 //  --------------------------------------------------------------------------
@@ -219,62 +212,60 @@ zplat_actor (zsock_t *pipe, void *args)
 #define SELFTEST_DIR_RW "src/selftest-rw"
 
 void
-zplat_test (bool verbose)
+zpthr_test (bool verbose)
 {
     zsys_init();
-    zsys_info ("testing zplat: ");
+    zsys_info ("testing zpthr: ");
     //  @selftest
     //  Simple create/destroy test
-    zactor_t *zplat = zactor_new (zplat_actor, NULL);
-    assert (zplat);
+    const char* ztype = "PULL";
+    zactor_t *zpthr = zactor_new (zpthr_actor, (void*)ztype);
+    assert (zpthr);
 
     if (verbose) {
-        zstr_send(zplat, "VERBOSE");
+        zstr_send(zpthr, "VERBOSE");
     }
-    
-    zsock_t* echo = zsock_new_rep("tcp://127.0.0.1:*");
-    const char* endpoint = zsock_endpoint(echo);
-    int rc = zsock_send(zplat, "ss", "CONNECT", endpoint);
+
+    zsock_t* spray = zsock_new(ZMQ_PUSH);
+    assert(spray);
+    zsock_bind(spray, "tcp://127.0.0.1:*");
+    const char* endpoint = zsock_endpoint(spray);
+    int rc = zsock_send(zpthr, "ss", "CONNECT", endpoint);
     assert(rc == 0);
     char* got_endpoint=0;
-    int rc2 = zsock_recv(zplat,"ssi", NULL, &got_endpoint, &rc);
+    int rc2 = zsock_recv(zpthr,"ssi", NULL, &got_endpoint, &rc);
     assert(rc2 == 0);
     assert(rc == 0);
     assert(streq(got_endpoint, endpoint));
     free(got_endpoint);
-
+    
     const int nmsgs = 10000;
-    const size_t msgsize = 1024;
-    rc = zsock_send(zplat, "si8", "START", nmsgs, msgsize);
+    const size_t msgsize = 1<<18;
+    rc = zsock_send(zpthr, "si8", "START", nmsgs);
     assert(rc == 0);
 
-    zmq_msg_t msg;
-    rc = zmq_msg_init (&msg);
-    assert (rc == 0);
-    void* s = zsock_resolve(echo);
+    zframe_t* frame = zframe_new(NULL, msgsize);
+    memset (zframe_data(frame), 0, zframe_size(frame));
+
     for (int count=0; count<nmsgs; ++count) {
-        int nbytes = zmq_recvmsg (s, &msg, 0);        
-        assert (nbytes == msgsize);
-        assert (zmq_msg_size (&msg)  == msgsize);
-        nbytes = zmq_sendmsg (s, &msg, 0);
-        assert (nbytes == msgsize);
+        zsock_send(spray, "if", count, frame);        
     }
-    rc = zmq_msg_close (&msg);
-    assert(rc == 0);
+    zframe_destroy(&frame);
 
     int got_nmsgs = 0;
-    size_t got_msgsize = 0;
+    size_t got_totdata = 0;
     int64_t dtus = 0;
-    rc = zsock_recv(zplat, "si88", NULL, &got_nmsgs, &got_msgsize, &dtus);
-    assert (rc == 0);
-    assert (msgsize == got_msgsize);
-    assert (nmsgs == got_nmsgs);
-    const double dtsec = 1e-6*dtus;
-    zsys_info("%d msgs took %.3fs, %.3f Hz, %.3f us rtt",
-              nmsgs, dtsec, nmsgs/dtsec, double(dtus)/nmsgs);
 
-    zsock_destroy(&echo);
-    zactor_destroy (&zplat);
+    rc = zsock_recv(zpthr, "si88", NULL, &got_nmsgs, &got_totdata, &dtus);
+    assert (rc == 0);
+    assert (nmsgs == got_nmsgs);
+    assert (msgsize*nmsgs == got_totdata);
+    const double dtsec = 1e-6*dtus;
+    zsys_info("%d msgs took %.3fs, %.3f Hz, %.3f Gbps",
+              nmsgs, dtsec, nmsgs/dtsec, 8e-9*got_totdata/dtsec);
+
+    zsock_destroy (&spray);
+    zactor_destroy (&zpthr);
     //  @end
 
     printf ("OK\n");
