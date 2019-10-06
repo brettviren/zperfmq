@@ -20,12 +20,13 @@ The ~libzmq~ package itself provides some very useful performance tools.  The Ze
 
 The core of this package is the ~perf~ actor.  It is created with a
 /measurement socket/ of a particular ZMQ type and then may later be
-given ~BIND~ or ~CONNECT~ messages to bind or connect to a given address.
-When a ~BIND~ is requested the address may contain a wildcard for the
-port (if ~tcp://~) and a fully-qualified address will be returned.
+given ~BIND~ or ~CONNECT~ command protocol messages in order to bind or
+connect to a given address.  When a ~BIND~ is requested the address may
+contain a wildcard for the port (if ~tcp://~) and a fully-qualified
+address will be returned.
 
 Subsequently, the owner of the ~perf~ actor may initiate various
-/measurements/ which fall in these categories:
+/measurements/ with other the following command protocol messages:
 
 - ~ECHO~ :: receive messages on the /measurement socket/ and immediately
             send them back until the fixed number of messages are
@@ -45,17 +46,24 @@ As may be clear from the description, ~ECHO~ and ~YODEL~ form a pair as do
 ~ECHO~ and ~YODEL~ may be used to measure the *round-trip* latency from the
 point of view of both ends.  The ~ECHO~ end measures the elapsed time
 starting at the receipt of the first message and so is not sensitive
-to any delays related to initializing the endpoints.
+to any delays related to initializing the endpoints.  The elapsed time
+is, however, sensitive to output buffering so will be substantially
+quick for measurements using a number of messages comparable to the
+HWM.
 
 The ~SEND~ and ~RECV~ pair may be used to measure *one-way* throughput from
-the point of view of either end.  The ~SEND~ end is very sensitive to
-output buffering.  If the number of messages is small compared to the
-output HWM (default of 1000 messages) the operation time will largely
-provide a measure of local memory access speed.
+the point of view of either end.  Like ~ECHO~, the ~SEND~ end is also
+sensitive to output buffering.
 
 A message size is given for ~YODEL~ and ~SEND~ (the message producers).
 The ~ECHO~ and ~RECV~ will tally the amount of data they receive and make
 it available in their measurement responses.  
+
+In addition to the elapsed time ("wall clock") the amount of CPU time
+for the measurement is also tallied.  This is the sum of "user" and
+"system" time.  The ratio with elapsed time (times 100) will give %CPU
+used over the measurement.  An example of this using the ~zperf~ API is
+given below.
 
 Finally, the message producers construct messages where the first
 frame holds an integer message count starting from zero for each
@@ -79,10 +87,13 @@ of the four measurement commands there are a trio of methods.
 - ~M_fin()~ :: wait for measurement to finish and return resulting operation time 
 - ~M()~ :: call both of the above
 
-Where ~M~ is ~ECHO~, ~YODEL~, ~SEND~, ~RECV~.  The distention between ~M_ini()~
-and ~M_fin()~ allow for these tests driven by different ~zperf~ instances
-to be interleaved.  A single ~zperf~ shall not have multiple interleaved
-tests without the expectation of deadlock or other errors.  
+Where ~M~ is ~ECHO~, ~YODEL~, ~SEND~, ~RECV~.  The differentiation between
+~M_ini()~ and ~M_fin()~ allow for tests driven by different ~zperf~
+instances to be interleaved.  This interleaving is required to avoid
+the deadlock that would occur if a full test is attempted with
+supplying an active other end.  A test needs independent actors on
+each end and an attempt to use the same actor for both will still
+result in deadlock or other errors.
 
 An example synchronous test, ignoring error checking and cleanup:
 
@@ -113,18 +124,20 @@ Currently the following /measurement sockets/ are supported:
 - ~SEND~ :: PUSH
 - ~RECV~ :: PULL
 
-* Extensions
+* Possible Future Extensions
 
 Some ideas for future extension:
 
-- A zproject server which launches a ~perf~ actor for a client,
+- A zproject server which launches a ~perf~ actor on behalf of a client,
   returning the result.
 
-- Associate Zyre presence with a ~perf~ actor in order to create
-  networks based on abstract identifiers. 
+- A zproject client interface to the above.
+
+- Associate Zyre presence with a ~perf~ actor in the server in order to
+  create networks based on abstract identifiers.
 
 - Support different measurement halting conditions to be robust
-  against message loss (eg when PUB/SUB added) and against variable
-  number of messages such as when PUSH/PULL or PUB/SUB networks of
-  greater than 2 nodes are launched.
+  against message loss (eg when PUB/SUB support is added) and against
+  variable number of messages such as when PUSH/PULL or PUB/SUB
+  networks of greater than 2 nodes are launched.
 
