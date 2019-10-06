@@ -263,6 +263,12 @@ zperf_bytes (zperf_t *self)
     return self->last_nbytes;
 }
 
+uint64_t
+zperf_cpu (zperf_t* self)
+{
+    return self->last_cpu;
+}
+
 
 //  --------------------------------------------------------------------------
 //  Self test of this class
@@ -281,14 +287,16 @@ zperf_bytes (zperf_t *self)
 #define SELFTEST_DIR_RW "src/selftest-rw"
 
 static
-void s_report(const char* what, int nmsgs, size_t totdat, int64_t time_us)
+void s_report(const char* what, int nmsgs, size_t totdat, int64_t time_us, uint64_t cpu_us)
 {
     double time_s = 1e-6*time_us;
     double Gbps = totdat*8e-9/time_s;
     double kHz = 0.001*nmsgs/time_s;
     double lat_us = 1e6*time_s/nmsgs;
-    zsys_info("%s: %d msgs (%.3f Gbps) in %.3fs, %.3f kHz, %.3f us/msg",
-              what, nmsgs, Gbps, time_s, kHz, lat_us);
+    double cpupc = (100.0 * cpu_us) / time_us;
+
+    zsys_info("%s: %d msgs (%.3f Gbps) in %.3fs, %.3f kHz, %.3f us/msg, %.3f %%CPU",
+              what, nmsgs, Gbps, time_s, kHz, lat_us, cpupc);
 }
 
 static
@@ -306,11 +314,14 @@ void s_test_lat(int echo, int yodel, int nmsgs, size_t msgsize)
     zperf_connect(zpe, ep);
 
     zperf_echo_ini(zpe, nmsgs);
-    int64_t te = zperf_yodel(zpy, nmsgs, msgsize);
-    int64_t ty = zperf_echo_fin(zpe);
+    int64_t ty = zperf_yodel(zpy, nmsgs, msgsize);
+    int64_t te = zperf_echo_fin(zpe);
 
-    s_report("echo", nmsgs, zperf_bytes(zpe), te);
-    s_report("yodel", nmsgs, zperf_bytes(zpy), ty);
+    uint64_t cy = zperf_cpu(zpy);
+    uint64_t ce = zperf_cpu(zpe);
+
+    s_report("echo", nmsgs, zperf_bytes(zpe), te, ce);
+    s_report("yodel", nmsgs, zperf_bytes(zpy), ty, cy);
 
     zperf_destroy (&zpe);
     zperf_destroy (&zpy);
@@ -334,8 +345,11 @@ void s_test_thr(int src, int dst, int nmsgs, size_t msgsize)
     int64_t td = zperf_recv(zpd, nmsgs);
     int64_t ts = zperf_send_fin(zps);
 
-    s_report("send", nmsgs, zperf_bytes(zps), ts);
-    s_report("recv", nmsgs, zperf_bytes(zpd), td);
+    uint64_t cd = zperf_cpu(zpd);
+    uint64_t cs = zperf_cpu(zps);
+
+    s_report("send", nmsgs, zperf_bytes(zps), ts, cs);
+    s_report("recv", nmsgs, zperf_bytes(zpd), td, cd);
 
     zperf_destroy (&zps);
     zperf_destroy (&zpd);

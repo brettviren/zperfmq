@@ -126,6 +126,12 @@ ZPERFMQ_EXPORT uint64_t
     zperf_bytes (zperf_t *self);
 
 //  *** Draft method, for development use, may change without warning ***
+//  Return the CPU time (user+system) in microseconds used by the last
+//  measurement.  The measurement must be finalized.
+ZPERFMQ_EXPORT uint64_t
+    zperf_cpu (zperf_t *self);
+
+//  *** Draft method, for development use, may change without warning ***
 //  Self test of this class.
 ZPERFMQ_EXPORT void
     zperf_test (bool verbose);
