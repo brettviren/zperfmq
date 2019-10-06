@@ -64,6 +64,8 @@
 //  These classes are stable or legacy and built in all releases
 //  Draft classes are by default not built in stable releases
 #ifdef ZPERFMQ_BUILD_DRAFT_API
+typedef struct _zperf_t zperf_t;
+#define ZPERF_T_DEFINED
 typedef struct _perf_t perf_t;
 #define PERF_T_DEFINED
 #endif // ZPERFMQ_BUILD_DRAFT_API
@@ -71,6 +73,7 @@ typedef struct _perf_t perf_t;
 
 //  Public classes, each with its own header file
 #ifdef ZPERFMQ_BUILD_DRAFT_API
+#include "zperf.h"
 #include "perf.h"
 #endif // ZPERFMQ_BUILD_DRAFT_API
 

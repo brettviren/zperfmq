@@ -27,6 +27,7 @@ static test_item_t
 all_tests [] = {
 #ifdef ZPERFMQ_BUILD_DRAFT_API
 // Tests for draft public classes:
+    { "zperf", zperf_test, false, true, NULL },
     { "perf", perf_test, false, true, NULL },
 #endif // ZPERFMQ_BUILD_DRAFT_API
     {NULL, NULL, 0, 0, NULL}          //  Sentinel

@@ -22,7 +22,7 @@
     serviced.  
   </actor>
 
-
+  <class name="zperf" />
 
   <!-- deprecated 
   <actor name = "zecho">A message echo service</actor>

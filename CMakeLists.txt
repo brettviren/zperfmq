@@ -146,6 +146,7 @@ set (zperfmq_headers
 
 IF (ENABLE_DRAFTS)
     list(APPEND zperfmq_headers
+        include/zperf.h
         include/perf.h
     )
 ENDIF (ENABLE_DRAFTS)
@@ -164,6 +165,7 @@ set (zperfmq_sources
 
 IF (ENABLE_DRAFTS)
     list (APPEND zperfmq_sources
+        src/zperf.c
         src/perf.c
     )
 ENDIF (ENABLE_DRAFTS)
@@ -362,6 +364,7 @@ set(TEST_CLASSES
 
 IF (ENABLE_DRAFTS)
     list (APPEND TEST_CLASSES
+    zperf
     perf
     )
 ENDIF (ENABLE_DRAFTS)

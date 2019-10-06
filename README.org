@@ -1,31 +1,123 @@
 #+title: zperfmq -- a ZeroMQ performance tester
 
-* Caveat
-
-This package is still a WIP, some of this readme is vaporware (or more charitably, todo notes).
-
 * Overview
 
 This package provides ways to measure ZeroMQ message throughput, latency, CPU and memory usage.
 
-The ~libzmq~ package itself provides some very useful performance tools.  The ZeroMQ wiki has guidance on [[http://wiki.zeromq.org/results:perf-howto][using them]] and some [[http://wiki.zeromq.org/area:results][results]] (see also the [[http://wiki.zeromq.org/whitepapers:measuring-performance][performance whitepaper]]).  The ~zperfmq~ package provides much of the same functionality with these additional goals:
+The ~libzmq~ package itself provides some very useful performance tools.  The ZeroMQ wiki has guidance on [[http://wiki.zeromq.org/results:perf-howto][using them]] and some [[http://wiki.zeromq.org/area:results][results]] (see also the [[http://wiki.zeromq.org/whitepapers:measuring-performance][performance whitepaper]]).  The ~zperfmq~ package provides much of the same functionality with these additional goals to provide:
 
-- bundle measuring functionality into one command line program (think of ~zperfmq~ as ~iperf3~ for ZeroMQ)
-- produce summary results more or less compatible with libzmq's built-in perf tools
-- produce results as time series in either batch or as a live stream
-- support multithreaded/multiconnect I/O technique needed to saturate high bandwidth links
-- provide support for generating plots (via Python module)
+- [X] performance testing code as a [[https://github.com/zeromq/czmq/][CZMQ]] actor (~perf_actor~).
+- [X] a [[https://github.com/zeromq/zproject/][zproject]] API (~zperf~) to that actor
+- [ ] a zproject server interface to the actor
+- [ ] functionality for ongoing network monitoring
+- [ ] hooks to time-series databases
+- [ ] automation of measurement campaigns 
+- [ ] generation of plots of results
+- [ ] support for PUB/SUB throughput and message loss
 
-* Implementation
+* The ~perf~ actor
 
-~zperfmq~ is a [[https://github.com/zeromq/czmq/][CZMQ]] program with elements built by [[https://github.com/zeromq/zproject/][zproject]] and [[https://github.com/zeromq/zproto][zproto]] and makes use of [[https://github.com/zeromq/zyre][Zyre]].
+The core of this package is the ~perf~ actor.  It is created with a
+/measurement socket/ of a particular ZMQ type and then may later be
+given ~BIND~ or ~CONNECT~ messages to bind or connect to a given address.
+When a ~BIND~ is requested the address may contain a wildcard for the
+port (if ~tcp://~) and a fully-qualified address will be returned.
 
-* Networks
+Subsequently, the owner of the ~perf~ actor may initiate various
+/measurements/ which fall in these categories:
 
-A test consists of connecting multiple instances of ~zperfmq~ as nodes in a network.  Connections maybe be created using absolute ZeroMQ addressing or with Zyre discovery.  The networks may be generally categorized in two ways.
+- ~ECHO~ :: receive messages on the /measurement socket/ and immediately
+            send them back until the fixed number of messages are
+            returned.  Return the elapsed time between receipt of
+            first message and sending of final.
 
-- echo :: This network is query/response based.  A query node sends a message to a response node which echos it back.  A query node may use REQ or DEALER and a response node REP or ROUTER.  When the network has exactly two nodes, one using REQ and one using REP, it is equivalent to the use of ~local_lat~ and ~remote_lat~ programs from ~libzmq~.  These networks can be used to measure round-trip latency and throughput.
+- ~YODEL~ :: send and receive a fixed number of messages, return the
+             elapsed time.
 
-- flow :: This network flows data from distinct senders to receivers.  The network may be made of PUSH/PULL or PUB/SUB sockets.  these networks can be used to measure single-leg throughput, message loss, and absolute single-leg latency to the accuracy allowed by clock synchronization.
+- ~SEND~ :: send a fixed number of messages, return elapsed time.
 
+- ~RECV~ :: receive a fixed number of messages, return elapsed time.
+
+As may be clear from the description, ~ECHO~ and ~YODEL~ form a pair as do
+~SEND~ and ~RECV~.  
+
+~ECHO~ and ~YODEL~ may be used to measure the *round-trip* latency from the
+point of view of both ends.  The ~ECHO~ end measures the elapsed time
+starting at the receipt of the first message and so is not sensitive
+to any delays related to initializing the endpoints.
+
+The ~SEND~ and ~RECV~ pair may be used to measure *one-way* throughput from
+the point of view of either end.  The ~SEND~ end is very sensitive to
+output buffering.  If the number of messages is small compared to the
+output HWM (default of 1000 messages) the operation time will largely
+provide a measure of local memory access speed.
+
+A message size is given for ~YODEL~ and ~SEND~ (the message producers).
+The ~ECHO~ and ~RECV~ will tally the amount of data they receive and make
+it available in their measurement responses.  
+
+Finally, the message producers construct messages where the first
+frame holds an integer message count starting from zero for each
+measurement run.  The message consumers (~YODEL~ and ~RECV~) check this
+count against expectation of a synchronous stream.  Each message that
+is out of sync increments an ~noos~ counter which is available after a
+measurement.  Out-of-sync message may occur if multiple I/O threads
+(eg as set by the ~ZSYS_IO_THREADS~ environment variable) are requested
+and multiple ~CONNECT~ command messages are sent to a ~perf~ actor for the
+same address.  Such a configuration may required for reaching
+throughput above 25 Gbps (on suitable networks).
+
+* The ~zperf~ API
+
+This package provides a ~zproject~ CLASS API called ~zperf~ which provides
+synchronous methods to the ~perf~ actor command protocol.  Each of the
+above commands have corresponding ~zperf~ methods.  In the case of each
+of the four measurement commands there are a trio of methods.
+
+- ~M_ini()~ :: initialize a measurement, typically returns immediately
+- ~M_fin()~ :: wait for measurement to finish and return resulting operation time 
+- ~M()~ :: call both of the above
+
+Where ~M~ is ~ECHO~, ~YODEL~, ~SEND~, ~RECV~.  The distention between ~M_ini()~
+and ~M_fin()~ allow for these tests driven by different ~zperf~ instances
+to be interleaved.  A single ~zperf~ shall not have multiple interleaved
+tests without the expectation of deadlock or other errors.  
+
+An example synchronous test, ignoring error checking and cleanup:
+
+#+begin_src c
+  zperf_t* zpe = zperf_new(ZMQ_REP);
+  zperf_t* zpy = zperf_new(ZMQ_REQ);
+
+  const char* ep = zperf_bind(zpy, "tcp://127.0.0.1:*");
+  zperf_connect(zpe, ep);
+
+  zperf_echo_ini(zpe, nmsgs);
+  int64_t time_e = zperf_yodel(zpy, nmsgs, msgsize);
+  int64_t time_y = zperf_echo_fin(zpe);
+#+end_src
+
+* Sockets
+
+Currently the following /measurement sockets/ are supported:
+
+- ~ECHO~ :: REP or ROUTEr
+- ~YODEL~ :: REQ
+- ~SEND~ :: PUSH
+- ~RECV~ :: PULL
+
+* Extensions
+
+Some ideas for future extension:
+
+- A zproject server which launches a ~perf~ actor for a client,
+  returning the result.
+
+- Associate Zyre presence with a ~perf~ actor in order to create
+  networks based on abstract identifiers. 
+
+- Support different measurement halting conditions to be robust
+  against message loss (eg when PUB/SUB added) and against variable
+  number of messages such as when PUSH/PULL or PUB/SUB networks of
+  greater than 2 nodes are launched.
 

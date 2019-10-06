@@ -11,6 +11,8 @@
 *.xml7
 
 # Ignore the source doc texts generated from program sources
+zperf.txt
+zperf.doc
 perf.txt
 perf.doc
 

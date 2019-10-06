@@ -1,0 +1,114 @@
+<class name = "zperf">
+  API to the zperfmq perf actor.
+
+  <constructor>
+    Create a new zperf using the given socket type.
+    <argument name="socket_type" type="integer" />
+  </constructor>
+
+  <destructor/>
+
+  <method name = "bind">
+    Bind the zperf measurement socket to an address.
+    Return the qualified address or NULL on error.
+    <argument name = "address" type="string">
+      If the address is of type tcp:// it may use a wildcard for the
+      port.
+    </argument>
+    <return type="string"/>
+  </method>
+
+  <method name = "connect">
+    Connect the zperf measurement socket to a fully qualified address.
+    Return code is zero on success.
+    <argument name = "address" type="string"/>
+    <return type="integer"/>
+  </method>
+
+  <method name = "echo">
+    Perform an echo measurement, expecting a given number of
+    messages. Return elapsed operation time in microseconds.
+    <argument name= "nmsgs" type="integer" />
+    <return type="number" size="8"/>
+  </method>
+  <method name = "echo_ini">
+    Initiate an echo measurement, expecting a given number of
+    messages.
+    <argument name= "nmsgs" type="integer" />
+  </method>
+  <method name = "echo_fin">
+    Finalize a previously initiated echo measurement, return elapsed
+    operation time in microseconds.
+    <return type="number" size="8" />
+  </method>
+
+  <method name = "yodel">
+    Perform a yodel measurement which sends the given number of
+    messages of given size to an echo service.  Return elapsed
+    operation time in microseconds.
+    <argument name= "nmsgs" type="integer" />
+    <argument name= "msgsize" type="number" size="8" />
+    <return type="number" size="8" />
+  </method>
+  <method name = "yodel_ini">
+    Initiate a yodel measurement which sends the given number of
+    messages of given size to an echo service.
+    <argument name= "nmsgs" type="integer" />
+    <argument name= "msgsize" type="number" size="8" />
+  </method>
+  <method name = "yodel_fin">
+    Finalize a previously initialized yodel measurement, return
+    elapsed operation time in microseconds.
+    <return type="number" size="8" />
+  </method>
+
+  <method name = "send">
+    Perform a send measurement sending the given number of message of
+    given size to a receiver.  Return elapsed operation time in
+    microseconds.
+    <argument name= "nmsgs" type="integer" />
+    <argument name= "msgsize" type="number" size="8" />
+    <return type="number" size="8" />
+  </method>
+  <method name = "send_ini">
+    Initialize a send measurement sending the given number of message
+    of given size to a receiver.
+    <argument name= "nmsgs" type="integer" />
+    <argument name= "msgsize" type="number" size="8" />
+  </method>
+  <method name = "send_fin">
+    Finalize a previously initialized send measurement.  Return
+    elapsed operation time in microseconds.
+    <return type="number" size="8" />
+  </method>
+
+  <method name = "recv">
+    Perform a recv measurement recving the given number of messages.
+    Return elapsed operation time in microseconds.
+    <argument name= "nmsgs" type="integer" />
+    <return type="number" size="8" />
+  </method>
+  <method name = "recv_ini">
+    Initialize a recv measurement.
+    <argument name= "nmsgs" type="integer" />
+  </method>
+  <method name = "recv_fin">
+    Finalize a previously initialized recv measurement.  Return
+    elapsed operation time in microseconds.
+    <return type="number" size="8" />
+  </method>
+  
+  <method name = "noos">
+    Return the number of messages that were received out of sync
+    during the previous yodel or recv measurements.  The measurement
+    must be finalized.
+    <return type="integer"/>
+  </method>
+
+  <method name = "bytes">
+    Return the number of bytes transferred by the previous
+    measurement.  The measurement must be finalized.
+    <return type="number" size="8" />
+  </method>
+
+</class>

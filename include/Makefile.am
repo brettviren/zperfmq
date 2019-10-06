@@ -8,6 +8,7 @@ include_HEADERS = \
 
 if ENABLE_DRAFTS
 include_HEADERS += \
+    zperf.h \
     perf.h
 
 endif

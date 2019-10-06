@@ -133,20 +133,22 @@ perf_echo (perf_t *self, int nmsgs)
 {
     assert (self);
 
+    size_t totdat = 0;
     void* watch = NULL;
     for (int count=0; count<nmsgs; ++count) {
         zmsg_t* msg = zmsg_recv(self->sock);
         if (!watch) {           // start after first yodel received
             watch = zmq_stopwatch_start();
         }
+        totdat += zmsg_size(msg);
         int rc = zmsg_send(&msg, self->sock);
         assert (rc == 0);
     }
 
     const int64_t elapsed = zmq_stopwatch_stop(watch);
 
-    // ECHO <nmsgs> <time_us>
-    int rc = zsock_send(self->pipe, "si8", "ECHO", nmsgs, elapsed);
+    // ECHO <nmsgs> <total_size> <time_us>
+    int rc = zsock_send(self->pipe, "si88", "ECHO", nmsgs, totdat, elapsed);
 
     return rc;
 }
@@ -281,7 +283,7 @@ perf_recv_api (perf_t *self)
         free (endpoint);
     }
     // ECHO <nmsgs> ->
-    // ECHO <nmsgs> <time_us>
+    // ECHO <nmsgs> <total_size> <time_us>
     else if (streq (command, "ECHO")) {
         char *value = zmsg_popstr (request);
         int nmsgs = atoi(value);
@@ -427,12 +429,13 @@ void s_echo_fin(zactor_t* zp, int nmsgs, size_t msgsize)
     int got_nmsgs=0;
     int64_t got_time=0;
     char* got_cmd=0;
-    int rc = zsock_recv(zp, "si8", &got_cmd, &got_nmsgs, &got_time);
+    size_t got_size=0;
+    int rc = zsock_recv(zp, "si88", &got_cmd, &got_nmsgs, &got_size, &got_time);
     assert(rc == 0);
     assert(streq(got_cmd, "ECHO"));
     free(got_cmd);
     assert(nmsgs == got_nmsgs);
-    s_report("echo", got_nmsgs, nmsgs*msgsize, got_time);
+    s_report("echo", got_nmsgs, got_size, got_time);
 }
 static
 void s_yodel(zactor_t* zp, int nmsgs, size_t msgsize)
@@ -512,12 +515,14 @@ void s_send_fin(zactor_t* zp, int nmsgs, size_t msgsize)
     char* got_cmd=0;
     int got_nmsgs=0;
     int64_t time_us=0;
+    size_t got_msgsize=0;
     int rc = zsock_recv(zp, "si88", &got_cmd,
-                    &got_nmsgs, &time_us);
+                        &got_nmsgs, &got_msgsize, &time_us);
     assert(rc == 0);
     assert(streq(got_cmd, "SEND"));
     free(got_cmd);
     assert(got_nmsgs == nmsgs);
+    assert(got_msgsize == msgsize);
     s_report("send", nmsgs, nmsgs*msgsize, time_us);
 
 }
@@ -551,13 +556,17 @@ perf_test (bool verbose)
     zsys_info("testing perf: ");
     //  @selftest
 
-    s_test_lat(ZMQ_REP, ZMQ_REQ, 10000, 1<<10);
-    s_test_lat(ZMQ_REP, ZMQ_REQ, 10000, 1<<16);
-    s_test_lat(ZMQ_ROUTER, ZMQ_REQ, 10000, 1<<10);
+    // Keep these tests well under 1 second each so when they are run
+    // with valgrind they do not take forever.  10k for lat takes
+    // about 15-30s, 2-3 s for thr.
+    int nmsgs = 10000;
+    s_test_lat(ZMQ_REP, ZMQ_REQ, nmsgs, 1<<10);
+    s_test_lat(ZMQ_REP, ZMQ_REQ, nmsgs, 1<<16);
+    s_test_lat(ZMQ_ROUTER, ZMQ_REQ, nmsgs, 1<<10);
     // fixme: this one hangs
     // s_test_lat(ZMQ_REP, ZMQ_DEALER, 10000, 1<<10);
 
-    s_test_thr(ZMQ_PUSH, ZMQ_PULL, 1000000, 1<<10);
+    s_test_thr(ZMQ_PUSH, ZMQ_PULL, nmsgs, 1<<10);
     // fixme: this one hangs
     // s_test_thr(ZMQ_PUB, ZMQ_SUB, 10000, 1<<10);
 
