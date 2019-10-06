@@ -43,7 +43,7 @@ Subsequently, the owner of the ~perf~ actor may initiate various
 As may be clear from the description, ~ECHO~ and ~YODEL~ form a pair as do
 ~SEND~ and ~RECV~.  
 
-~ECHO~ and ~YODEL~ may be used to measure the *round-trip* latency from the
+~ECHO~ and ~YODEL~ may be used to measure the *round-trip latency* from the
 point of view of both ends.  The ~ECHO~ end measures the elapsed time
 starting at the receipt of the first message and so is not sensitive
 to any delays related to initializing the endpoints.  The elapsed time
@@ -51,7 +51,7 @@ is, however, sensitive to output buffering so will be substantially
 quick for measurements using a number of messages comparable to the
 HWM.
 
-The ~SEND~ and ~RECV~ pair may be used to measure *one-way* throughput from
+The ~SEND~ and ~RECV~ pair may be used to measure *one-way throughput* from
 the point of view of either end.  Like ~ECHO~, the ~SEND~ end is also
 sensitive to output buffering.
 
