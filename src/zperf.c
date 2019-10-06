@@ -22,6 +22,7 @@ struct _zperf_t {
     int last_nmsgs;
     size_t last_nbytes;
     int last_noos;
+    uint64_t last_cpu;
 };
 
 
@@ -118,14 +119,16 @@ void s_clear_last(zperf_t* self)
     self->last_nmsgs = 0;
     self->last_noos = 0;
     self->last_nbytes = 0;
+    self->last_cpu = 0;         /* user+system time in microseconds */
 }
 
 static
-void s_set_last(zperf_t* self, int nmsgs, int noos, size_t nbytes)
+void s_set_last(zperf_t* self, int nmsgs, int noos, size_t nbytes, uint64_t cpu)
 {
     self->last_nmsgs = nmsgs;
     self->last_noos = noos;
     self->last_nbytes = nbytes;
+    self->last_cpu = cpu;
 }
 
 void
@@ -141,13 +144,15 @@ zperf_echo_fin (zperf_t *self)
 {
     int nmsgs=0;
     int64_t time_us=0;
+    uint64_t cpu_us=0;
     char* cmd=0;
     size_t totdat=0;
-    int rc = zsock_recv(self->perf, "si88", &cmd, &nmsgs, &totdat, &time_us);
+    int rc = zsock_recv(self->perf, "si888", &cmd,
+                        &nmsgs, &totdat, &time_us, &cpu_us);
     assert(rc == 0);
     assert(streq(cmd, "ECHO"));
     free(cmd);
-    s_set_last(self, nmsgs, 0, totdat);
+    s_set_last(self, nmsgs, 0, totdat, cpu_us);
     return time_us;
 }
 
@@ -171,13 +176,14 @@ zperf_yodel_fin (zperf_t *self)
 {
     int nmsgs=0, noos=0;
     int64_t time_us=0, msgsize=0;
+    uint64_t cpu_us=0;
     char* cmd=0;
-    int rc = zsock_recv(self->perf, "si88i", &cmd,
-                        &nmsgs, &msgsize, &time_us, &noos);
+    int rc = zsock_recv(self->perf, "si888i", &cmd,
+                        &nmsgs, &msgsize, &time_us, &cpu_us, &noos);
     assert(rc == 0);
     assert(streq("YODEL", cmd));
     free(cmd);
-    s_set_last(self, nmsgs, noos, nmsgs*msgsize);
+    s_set_last(self, nmsgs, noos, nmsgs*msgsize, cpu_us);
     return time_us;
 }
 
@@ -202,13 +208,14 @@ zperf_send_fin (zperf_t *self)
     char* cmd=0;
     int nmsgs=0;
     int64_t time_us=0;
+    uint64_t cpu_us=0;
     size_t msgsize=0;
-    int rc = zsock_recv(self->perf, "si88", &cmd,
-                        &nmsgs, &msgsize, &time_us);
+    int rc = zsock_recv(self->perf, "si888", &cmd,
+                        &nmsgs, &msgsize, &time_us, &cpu_us);
     assert(rc == 0);
     assert(streq(cmd, "SEND"));
     free(cmd);
-    s_set_last(self, nmsgs, 0, nmsgs*msgsize);
+    s_set_last(self, nmsgs, 0, nmsgs*msgsize, cpu_us);
     return time_us;
 }
 
@@ -234,12 +241,13 @@ zperf_recv_fin (zperf_t *self)
     int nmsgs=0, noos=0;
     size_t totdat=0;
     int64_t time_us=0;
-    int rc = zsock_recv(self->perf, "si88i", &cmd,
-                        &nmsgs, &totdat, &time_us, &noos);
+    uint64_t cpu_us=0;
+    int rc = zsock_recv(self->perf, "si888i", &cmd,
+                        &nmsgs, &totdat, &time_us, &cpu_us, &noos);
     assert(rc == 0);
     assert(streq(cmd, "RECV"));
     free(cmd);
-    s_set_last(self, nmsgs, noos, totdat);
+    s_set_last(self, nmsgs, noos, totdat, cpu_us);
     return time_us;
 }
 

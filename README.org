@@ -6,14 +6,15 @@ This package provides ways to measure ZeroMQ message throughput, latency, CPU an
 
 The ~libzmq~ package itself provides some very useful performance tools.  The ZeroMQ wiki has guidance on [[http://wiki.zeromq.org/results:perf-howto][using them]] and some [[http://wiki.zeromq.org/area:results][results]] (see also the [[http://wiki.zeromq.org/whitepapers:measuring-performance][performance whitepaper]]).  The ~zperfmq~ package provides much of the same functionality with these additional goals to provide:
 
+- [X] measure CPU% during a performance measurement
 - [X] performance testing code as a [[https://github.com/zeromq/czmq/][CZMQ]] actor (~perf_actor~).
 - [X] a [[https://github.com/zeromq/zproject/][zproject]] API (~zperf~) to that actor
-- [ ] a zproject server interface to the actor
+- [ ] a zproject server interface to the ~perf~ actor
 - [ ] functionality for ongoing network monitoring
-- [ ] hooks to time-series databases
+- [ ] hooks to time-series databases (eg fill Graphite via STREAM socket)
 - [ ] automation of measurement campaigns 
-- [ ] generation of plots of results
-- [ ] support for PUB/SUB throughput and message loss
+- [ ] generation of plots of results (with Python/matplotlib)
+- [ ] support for PUB/SUB throughput and message loss 
 
 * The ~perf~ actor
 
@@ -93,8 +94,14 @@ An example synchronous test, ignoring error checking and cleanup:
   zperf_connect(zpe, ep);
 
   zperf_echo_ini(zpe, nmsgs);
-  int64_t time_e = zperf_yodel(zpy, nmsgs, msgsize);
-  int64_t time_y = zperf_echo_fin(zpe);
+  int64_t time_y = zperf_yodel(zpy, nmsgs, msgsize);
+  int64_t time_e = zperf_echo_fin(zpe);
+
+  uint64_t cpu_y = zperf_cpu(zpy);
+  uint64_t cpu_e = zperf_cpu(zpe);
+
+  double cpupc_y = (100.0*cpu_y)/time_y;
+  double cpupc_e = (100.0*cpu_e)/time_e;
 #+end_src
 
 * Sockets

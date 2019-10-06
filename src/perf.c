@@ -27,6 +27,8 @@ serviced.
 */
 
 #include "zperfmq_classes.h"
+#include <sys/time.h>
+#include <sys/resource.h>
 
 //  Structure of our actor
 
@@ -126,6 +128,15 @@ perf_connect (perf_t *self, const char* endpoint)
     return rc;
 }
 
+static uint64_t s_cpu_now()
+{
+    struct rusage u;
+    getrusage(RUSAGE_SELF, &u);
+
+    return u.ru_utime.tv_usec + u.ru_stime.tv_usec +
+        (u.ru_utime.tv_sec + u.ru_stime.tv_sec)*1000000;
+}
+
 // Run an echo service.  Return results down pipe.
 
 static int
@@ -135,10 +146,12 @@ perf_echo (perf_t *self, int nmsgs)
 
     size_t totdat = 0;
     void* watch = NULL;
+    uint64_t cpu_start = 0;
     for (int count=0; count<nmsgs; ++count) {
         zmsg_t* msg = zmsg_recv(self->sock);
         if (!watch) {           // start after first yodel received
             watch = zmq_stopwatch_start();
+            cpu_start = s_cpu_now();
         }
         totdat += zmsg_size(msg);
         int rc = zmsg_send(&msg, self->sock);
@@ -146,9 +159,11 @@ perf_echo (perf_t *self, int nmsgs)
     }
 
     const int64_t elapsed = zmq_stopwatch_stop(watch);
+    const uint64_t cpu_us = s_cpu_now() - cpu_start;
 
-    // ECHO <nmsgs> <total_size> <time_us>
-    int rc = zsock_send(self->pipe, "si88", "ECHO", nmsgs, totdat, elapsed);
+    // ECHO <nmsgs> <total_size> <time_us> <cpu_us>
+    int rc = zsock_send(self->pipe, "si88", "ECHO",
+                        nmsgs, totdat, elapsed, cpu_us);
 
     return rc;
 }
@@ -170,6 +185,8 @@ perf_yodel (perf_t *self, int nmsgs, size_t msgsize)
 
     int rc=0, noos = 0;
     void* watch = zmq_stopwatch_start();
+    uint64_t cpu_start = s_cpu_now();
+
     for (int count=0; count < nmsgs; ++count) {
         rc = zsock_send(self->sock, "if", count, frame);
         assert(rc == 0);
@@ -183,12 +200,13 @@ perf_yodel (perf_t *self, int nmsgs, size_t msgsize)
         zframe_destroy(&got_frame);
     }
     const int64_t elapsed = zmq_stopwatch_stop(watch);
+    const uint64_t cpu_us = s_cpu_now() - cpu_start;
 
     zframe_destroy(&frame);
 
-    // YODEL <nmsgs> <msgsize> <time_us> <noos>
-    rc = zsock_send(self->pipe, "si88i", "YODEL",
-                    nmsgs, msgsize, elapsed, noos);
+    // YODEL <nmsgs> <msgsize> <time_us> <cpu_us> <noos>
+    rc = zsock_send(self->pipe, "si888i", "YODEL",
+                    nmsgs, msgsize, elapsed, cpu_us, noos);
     return rc;
 }
 
@@ -204,17 +222,19 @@ perf_send (perf_t *self, int nmsgs, size_t msgsize)
     memset (zframe_data(frame), 0, zframe_size(frame));    
 
     void* watch = zmq_stopwatch_start();
+    uint64_t cpu_start = s_cpu_now();
     for (int count = 0; count<nmsgs; ++count) {
         int rc = zsock_send(self->sock, "if", count, frame);
         assert(rc == 0);
     }
     const int64_t elapsed = zmq_stopwatch_stop(watch);
+    const uint64_t cpu_us = s_cpu_now() - cpu_start;
 
     zframe_destroy(&frame);
     
-    // SEND <nmsgs> <msgsize> <time_us>
+    // SEND <nmsgs> <msgsize> <time_us> <cpu_us>
     int rc = zsock_send(self->pipe, "si88", "SEND",
-                        nmsgs, msgsize, elapsed);
+                        nmsgs, msgsize, elapsed, cpu_us);
 
     return rc;
 }
@@ -229,6 +249,8 @@ perf_recv (perf_t *self, int nmsgs)
 
     int64_t totdata=0;
     void* watch = NULL;
+    uint64_t cpu_start = 0;
+
     int rc=0, noos=0;
     for (int count = 0; count < nmsgs; ++count) {
         int got_count = 0;
@@ -240,6 +262,7 @@ perf_recv (perf_t *self, int nmsgs)
         }
         if (!watch) {           /* start after first message */
             watch = zmq_stopwatch_start ();
+            cpu_start = s_cpu_now();
         }
 
         size_t siz = zframe_size(frame);
@@ -248,10 +271,11 @@ perf_recv (perf_t *self, int nmsgs)
     }
 
     const int64_t elapsed = zmq_stopwatch_stop(watch);
+    const uint64_t cpu_us = s_cpu_now() - cpu_start;
 
-    // RECV <nmsgs> <total_size> <time_us> <noos>
-    rc = zsock_send(self->pipe, "si88i", "RECV",
-                    nmsgs, totdata, elapsed, noos);
+    // RECV <nmsgs> <total_size> <time_us> <cpu_us> <noos>
+    rc = zsock_send(self->pipe, "si888i", "RECV",
+                    nmsgs, totdata, elapsed, cpu_us, noos);
 
     return rc;
 }
@@ -283,7 +307,7 @@ perf_recv_api (perf_t *self)
         free (endpoint);
     }
     // ECHO <nmsgs> ->
-    // ECHO <nmsgs> <total_size> <time_us>
+    // ECHO <nmsgs> <total_size> <time_us> <cpu_us>
     else if (streq (command, "ECHO")) {
         char *value = zmsg_popstr (request);
         int nmsgs = atoi(value);
@@ -291,7 +315,7 @@ perf_recv_api (perf_t *self)
         perf_echo (self, nmsgs);
     }
     // YODEL <nmsgs> <msgsize> ->
-    // YODEL <nmsgs> <msgsize> <time_us> <noos>
+    // YODEL <nmsgs> <msgsize> <time_us> <cpu_us> <noos>
     else if (streq (command, "YODEL")) {
         char *value = zmsg_popstr (request);
         const int nmsgs = atoi(value);
@@ -302,7 +326,7 @@ perf_recv_api (perf_t *self)
         perf_yodel (self, nmsgs, msgsize);
     }
     // SEND <nmsgs> <msgsize> ->
-    // SEND <nmsgs> <msgsize> <time_us>
+    // SEND <nmsgs> <msgsize> <time_us> <cpu_us>
     else if (streq (command, "SEND")) {
         char *value = zmsg_popstr (request);
         int nmsgs = atoi(value);
@@ -313,7 +337,7 @@ perf_recv_api (perf_t *self)
         perf_send (self, nmsgs, msgsize);
     }
     // RECV <nmsgs> ->
-    // RECV <nmsgs> <total_size> <time_us> <noos>
+    // RECV <nmsgs> <total_size> <time_us> <cpu_us> <noos>
     else if (streq (command, "RECV")) {
         char *value = zmsg_popstr (request);
         int nmsgs = atoi(value);
@@ -407,14 +431,15 @@ void s_conn(zactor_t* zp, const char* ep)
 }
 
 static
-void s_report(const char* what, int nmsgs, size_t totdat, int64_t time_us)
+void s_report(const char* what, int nmsgs, size_t totdat, int64_t time_us, uint64_t cpu_us)
 {
     double time_s = 1e-6*time_us;
     double Gbps = totdat*8e-9/time_s;
     double kHz = 0.001*nmsgs/time_s;
     double lat_us = 1e6*time_s/nmsgs;
-    zsys_info("%s: %d msgs (%.3f Gbps) in %.3fs, %.3f kHz, %.3f us/msg",
-              what, nmsgs, Gbps, time_s, kHz, lat_us);
+    double cpupc = (100.0 * cpu_us) / time_us;
+    zsys_info("%s: %d msgs (%.3f Gbps) in %.3fs, %.3f kHz, %.3f us/msg, %.3f %%CPU ",
+              what, nmsgs, Gbps, time_s, kHz, lat_us, cpupc);
 }
 
 static
@@ -428,14 +453,16 @@ void s_echo_fin(zactor_t* zp, int nmsgs, size_t msgsize)
 {
     int got_nmsgs=0;
     int64_t got_time=0;
+    uint64_t got_cpu=0;
     char* got_cmd=0;
     size_t got_size=0;
-    int rc = zsock_recv(zp, "si88", &got_cmd, &got_nmsgs, &got_size, &got_time);
+    int rc = zsock_recv(zp, "si888", &got_cmd,
+                        &got_nmsgs, &got_size, &got_time, &got_cpu);
     assert(rc == 0);
     assert(streq(got_cmd, "ECHO"));
     free(got_cmd);
     assert(nmsgs == got_nmsgs);
-    s_report("echo", got_nmsgs, got_size, got_time);
+    s_report("echo", got_nmsgs, got_size, got_time, got_cpu);
 }
 static
 void s_yodel(zactor_t* zp, int nmsgs, size_t msgsize)
@@ -444,15 +471,16 @@ void s_yodel(zactor_t* zp, int nmsgs, size_t msgsize)
     assert(rc == 0);
     int got_nmsgs=0, got_noos=0;
     int64_t time_us=0, got_msgsize=0;
+    uint64_t cpu_us = 0;
     char* got_cmd=0;
-    rc = zsock_recv(zp, "si88i", &got_cmd,
-                    &got_nmsgs, &got_msgsize, &time_us, &got_noos);
+    rc = zsock_recv(zp, "si888i", &got_cmd,
+                    &got_nmsgs, &got_msgsize, &time_us, &cpu_us, &got_noos);
     assert(rc == 0);
     assert(streq("YODEL", got_cmd));
     free(got_cmd);
     assert(got_nmsgs == nmsgs);
     assert(got_msgsize == msgsize);
-    s_report("yodel", got_nmsgs, nmsgs*msgsize, time_us);
+    s_report("yodel", got_nmsgs, nmsgs*msgsize, time_us, cpu_us);
     zsys_info("yodel: %d out-of-order", got_noos);
 }
 
@@ -496,35 +524,36 @@ void s_recv(zactor_t* zp, int nmsgs, size_t msgsize)
     int got_nmsgs=0, noos=0;
     size_t totdat=0;
     int64_t time_us=0;
+    uint64_t cpu_us=0;
     rc = zsock_recv(zp, "si88i", &got_cmd,
-                    &got_nmsgs, &totdat, &time_us, &noos);
+                    &got_nmsgs, &totdat, &time_us, &cpu_us, &noos);
     assert(rc == 0);
     assert(streq(got_cmd, "RECV"));
     free(got_cmd);
     assert(got_nmsgs == nmsgs);
     assert(totdat == nmsgs*msgsize);
     
-    s_report("recv", nmsgs, totdat, time_us);
+    s_report("recv", nmsgs, totdat, time_us, cpu_us);
     zsys_info("recv: %d out-of-order", noos);
 }
 
 static
 void s_send_fin(zactor_t* zp, int nmsgs, size_t msgsize)
 {
-    // SEND <nmsgs> <msgsize> <time_us>
+    // SEND <nmsgs> <msgsize> <time_us> <cpu_us>
     char* got_cmd=0;
     int got_nmsgs=0;
     int64_t time_us=0;
+    uint64_t cpu_us=0;
     size_t got_msgsize=0;
     int rc = zsock_recv(zp, "si88", &got_cmd,
-                        &got_nmsgs, &got_msgsize, &time_us);
+                        &got_nmsgs, &got_msgsize, &time_us, &cpu_us);
     assert(rc == 0);
     assert(streq(got_cmd, "SEND"));
     free(got_cmd);
     assert(got_nmsgs == nmsgs);
     assert(got_msgsize == msgsize);
-    s_report("send", nmsgs, nmsgs*msgsize, time_us);
-
+    s_report("send", nmsgs, nmsgs*msgsize, time_us, cpu_us);
 }
 
 static

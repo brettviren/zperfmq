@@ -111,4 +111,10 @@
     <return type="number" size="8" />
   </method>
 
+  <method name = "cpu">
+    Return the CPU time (user+system) in microseconds used by the last
+    measurement.  The measurement must be finalized.
+    <return type="number" size="8" />
+  </method>
+
 </class>
