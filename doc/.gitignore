@@ -11,14 +11,8 @@
 *.xml7
 
 # Ignore the source doc texts generated from program sources
-zecho.txt
-zecho.doc
-zplat.txt
-zplat.doc
-zpray.txt
-zpray.doc
-zpthr.txt
-zpthr.doc
+perf.txt
+perf.doc
 
 # Make sure to track the manually maintained project description
 !*.adoc

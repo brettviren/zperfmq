@@ -5,13 +5,10 @@
 
 ACLOCAL_AMFLAGS = -I config
 
-AM_CXXFLAGS = \
-    -std=c++11
 
 AM_CPPFLAGS = \
     ${libzmq_CFLAGS} \
     ${czmq_CFLAGS} \
-    -D__STDC_FORMAT_MACROS \
     -I$(srcdir)/include
 
 project_libs = ${libzmq_LIBS} ${czmq_LIBS}
@@ -44,7 +41,7 @@ EXTRA_DIST += \
 endif
 
 EXTRA_DIST += \
-    src/zperfmq_classes.hpp
+    src/zperfmq_classes.h
 
 # NOTE: this "include" syntax is not a "make" but an "autotools" keyword,
 # see https://www.gnu.org/software/automake/manual/html_node/Include.html

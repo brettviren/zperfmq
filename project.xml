@@ -3,22 +3,34 @@
     script = "zproject.gsl"
     description = "ZeroMQ performance measurement tool"
     email = "brett.viren@gmail.com"
-    license = "GPL 3"
+    license = "LGPL 3"
     url = "https://github.com/brettviren/zperfmq"
     repository = "https://github.com/brettviren/zperfmq"
     >
   <include filename = "license.xml" />
   <version major = "0" minor = "0" patch = "0" />
-  <use project = "czmq" language="C++"/>
-  <classfilename use-cxx = "true" use-cxx-gcc-4-9 = "true"
-                 source-extension = "cpp" header-extension = "hpp" />  
+  <use project = "czmq"/>
+
+  <actor name = "perf">
+    A swish army knife of perf services.
+
+    It can provide both ends of a fast echo for latency measurements
+    and a sender or receiver of a fast flow for throughput measurements.
+
+    Measurements are initiated via command messages with results
+    returned.  While a measurement is ongoing the actor pipe is not
+    serviced.  
+  </actor>
 
 
+
+  <!-- deprecated 
   <actor name = "zecho">A message echo service</actor>
   <actor name = "zplat">A round-trip latency measure</actor>
 
   <actor name = "zpray">A message spray service</actor>  
   <actor name = "zpthr">A throughput measure</actor>  
+  -->
 
   <target name = "travis" >
     <option name = "check_zproject" value = "1" />

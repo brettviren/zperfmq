@@ -3,15 +3,12 @@
 #  Read the zproject/README.md for information about making permanent changes. #
 ################################################################################
 include_HEADERS = \
-    zperfmq.hpp \
-    zperfmq_library.hpp
+    zperfmq.h \
+    zperfmq_library.h
 
 if ENABLE_DRAFTS
 include_HEADERS += \
-    zecho.hpp \
-    zplat.hpp \
-    zpray.hpp \
-    zpthr.hpp
+    perf.h
 
 endif
 
