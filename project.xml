@@ -34,6 +34,10 @@
   <target name = "travis" >
     <option name = "check_zproject" value = "1" />
   </target>
-  <target name = "cmake">
-  </target>
+
+  <target name = "cmake" />
+
+  <target name = "python" />
+  <target name = "python_cffi" />
+
 </project>

@@ -66,6 +66,7 @@ endif #ENABLE_ZPERFMQ_SELFTEST
 # Install api files into /usr/local/share/zproject
 apidir = @datadir@/zproject/zperfmq
 dist_api_DATA = \
+    api/python_cffi.slurp \
     api/zperf.xml
 
 # define custom target for all products of /src
