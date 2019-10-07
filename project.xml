@@ -11,6 +11,10 @@
   <version major = "0" minor = "0" patch = "0" />
   <use project = "czmq"/>
 
+  <classfilename use-cxx = "true" use-cxx-gcc-4-9 = "true"
+                 pkgincludedir = "false" keep-tree = "true" pretty-print = "no"
+                 source-extension = "cpp" header-extension = "hpp" />
+
   <actor name = "perf">
     A swish army knife of perf services.
 

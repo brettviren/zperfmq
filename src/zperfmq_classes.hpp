@@ -16,7 +16,7 @@
 #include "platform.h"
 
 //  External API
-#include "../include/zperfmq.h"
+#include "../include/zperfmq.hpp"
 
 //  Opaque class structures to allow forward references
 

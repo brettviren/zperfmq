@@ -13,7 +13,7 @@
     =========================================================================
 */
 
-#include "zperfmq_classes.h"
+#include "zperfmq_classes.hpp"
 
 typedef struct {
     const char *testname;           // test name, can be called from command line this way

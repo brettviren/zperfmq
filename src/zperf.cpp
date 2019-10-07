@@ -12,7 +12,7 @@
 @end
 */
 
-#include "zperfmq_classes.h"
+#include "zperfmq_classes.hpp"
 
 //  Structure of our class
 

@@ -73,8 +73,8 @@ typedef struct _perf_t perf_t;
 
 //  Public classes, each with its own header file
 #ifdef ZPERFMQ_BUILD_DRAFT_API
-#include "zperf.h"
-#include "perf.h"
+#include "zperf.hpp"
+#include "perf.hpp"
 #endif // ZPERFMQ_BUILD_DRAFT_API
 
 #ifdef ZPERFMQ_BUILD_DRAFT_API

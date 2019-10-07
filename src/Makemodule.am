@@ -17,17 +17,18 @@ src_libzperfmq_la_SOURCES = \
 
 if ENABLE_DRAFTS
 src_libzperfmq_la_SOURCES += \
-    src/zperf.c \
-    src/perf.c
+    src/zperf.cpp \
+    src/perf.cpp
 
 endif
 
 if ENABLE_DRAFTS
 src_libzperfmq_la_SOURCES += \
-    src/zperfmq_private_selftest.c
+    src/zperfmq_private_selftest.cpp
 endif
 
 src_libzperfmq_la_CPPFLAGS = ${AM_CPPFLAGS}
+src_libzperfmq_la_CXXFLAGS = ${AM_CXXFLAGS}
 
 src_libzperfmq_la_LDFLAGS = \
     -version-info @LTVER@ \
@@ -52,7 +53,7 @@ check_PROGRAMS += src/zperfmq_selftest
 noinst_PROGRAMS += src/zperfmq_selftest
 src_zperfmq_selftest_CPPFLAGS = ${AM_CPPFLAGS}
 src_zperfmq_selftest_LDADD = ${program_libs}
-src_zperfmq_selftest_SOURCES = src/zperfmq_selftest.c
+src_zperfmq_selftest_SOURCES = src/zperfmq_selftest.cpp
 endif #ENABLE_ZPERFMQ_SELFTEST
 
 # Install api files into /usr/local/share/zproject
@@ -194,7 +195,7 @@ coverage: src/zperfmq_selftest $(top_builddir)/$(SELFTEST_DIR_RW) $(top_builddir
 	$(MAKE) check
 	lcov --base-directory . --directory . --capture -o coverage.info
 	lcov --remove coverage.info "/usr*" -o coverage.info
-	lcov --remove coverage.info "zperfmq_selftest.c" -o coverage.info
+	lcov --remove coverage.info "zperfmq_selftest.cpp" -o coverage.info
 	$(RM) -rf coverage/*
 	genhtml -o coverage/ -t "zperfmq test coverage" --num-spaces 4 coverage.info
 else
@@ -326,7 +327,7 @@ endif
 
 cppcheck.xml:
 	@echo "Performing cppcheck static analysis..."
-	cppcheck --enable=all --inconclusive --xml --xml-version=2 . 2>"$@"
+	cppcheck --std=c++11 --enable=all --inconclusive --xml --xml-version=2 . 2>"$@"
 	@echo "The cppcheck static analysis is done"
 
 # Note: this recipe tests that the Git-based workspace reports no changed

@@ -65,11 +65,11 @@ GENERATED_DOCS =
 	@true
 
 GENERATED_DOCS += zperf.txt zperf.doc
-zperf.txt: $(top_srcdir)/src/zperf.c
+zperf.txt: $(top_srcdir)/src/zperf.cpp
 	"$(srcdir)/mkman" "zperf" "$(builddir)/zperf.txt" "$(srcdir)/.."
 
 GENERATED_DOCS += perf.txt perf.doc
-perf.txt: $(top_srcdir)/src/perf.c
+perf.txt: $(top_srcdir)/src/perf.cpp
 	"$(srcdir)/mkman" "perf" "$(builddir)/perf.txt" "$(srcdir)/.."
 
 ### Note: for mains, we keep the source name rather than flattened name:c

@@ -5,11 +5,11 @@
     =========================================================================
 */
 
-#ifndef ZPERFMQ_H_H_INCLUDED
-#define ZPERFMQ_H_H_INCLUDED
+#ifndef ZPERFMQ_HPP_H_INCLUDED
+#define ZPERFMQ_HPP_H_INCLUDED
 
 //  Include the project library file
-#include "zperfmq_library.h"
+#include "zperfmq_library.hpp"
 
 //  Add your own public definitions here, if you need them
 

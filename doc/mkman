@@ -87,15 +87,15 @@ sub generate_manpage {
         unless open (MAKEFILE, "Makefile");
     while (<MAKEFILE>) {
         if (/MAN1.*$outp_basename\.1/) {
-            $source = "$rootsrcdir/src/$name.c";
-            $header = "$rootsrcdir/src/$name.c";
+            $source = "$rootsrcdir/src/$name.cpp";
+            $header = "$rootsrcdir/src/$name.cpp";
             $cat = 1;
             $cat_text = "Program for ";
             last;
         }
         elsif (/MAN3.*$outp_basename\.3/) {
-            $source = "$rootsrcdir/src/$name.c";
-            $header = "$rootsrcdir/include/$name.h";
+            $source = "$rootsrcdir/src/$name.cpp";
+            $header = "$rootsrcdir/include/$name.hpp";
             $cat = 3;
             $cat_text = "Class for ";
             last;
@@ -108,15 +108,6 @@ sub generate_manpage {
 
     #   Look for class title in 2nd line of source
     #   If there's no class file, leave hand-written man page alone
-    if (! open (SOURCE, $source)) {
-        # Support mixed-source projects (named C in config,
-        # but having both .c and .cc files in reality)
-        printf "Can't open C '$source', retry for C++\n";
-        if ($header eq $source) {
-            $header .= "c";
-        }
-        $source .= "c"; # Retry for a *.cc filename
-    }
     die "Can't open '$source'"
         unless open (SOURCE, $source);
     # NOTE: This duplication of lines is needed for proper work:

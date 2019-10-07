@@ -26,7 +26,7 @@ serviced.
 @end
 */
 
-#include "zperfmq_classes.h"
+#include "zperfmq_classes.hpp"
 #include <sys/time.h>
 #include <sys/resource.h>
 

@@ -8,7 +8,7 @@
 ########################################################################
 cmake_minimum_required(VERSION 2.8.12)
 project(zperfmq)
-enable_language(C)
+enable_language(CXX)
 enable_testing()
 
 set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -63,7 +63,7 @@ configure_file("${CMAKE_BINARY_DIR}/platform.h.in" "${CMAKE_BINARY_DIR}/platform
 #so the sources have to be compiled as c++
 if (MSVC)
     enable_language(CXX)
-    file(GLOB sources "${SOURCE_DIR}/src/*.c")
+    file(GLOB sources "${SOURCE_DIR}/src/*.cpp")
     set_source_files_properties(
         ${sources}
         PROPERTIES LANGUAGE CXX
@@ -141,13 +141,13 @@ message(STATUS "Detected ZPERFMQ Version - ${ZPERFMQ_VERSION}")
 ########################################################################
 set (zperfmq_headers
     include/zperfmq_library.h
-    include/zperfmq.h
+    include/zperfmq.hpp
 )
 
 IF (ENABLE_DRAFTS)
     list(APPEND zperfmq_headers
-        include/zperf.h
-        include/perf.h
+        include/zperf.hpp
+        include/perf.hpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -165,14 +165,14 @@ set (zperfmq_sources
 
 IF (ENABLE_DRAFTS)
     list (APPEND zperfmq_sources
-        src/zperf.c
-        src/perf.c
+        src/zperf.cpp
+        src/perf.cpp
     )
 ENDIF (ENABLE_DRAFTS)
 
 IF (ENABLE_DRAFTS)
     list (APPEND zperfmq_sources
-        src/zperfmq_private_selftest.c
+        src/zperfmq_private_selftest.cpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -324,7 +324,7 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/zperfmqConfig.cmake
 ########################################################################
 add_executable(
     zperfmq_selftest
-    "${SOURCE_DIR}/src/zperfmq_selftest.c"
+    "${SOURCE_DIR}/src/zperfmq_selftest.cpp"
 )
 if (TARGET zperfmq)
 target_link_libraries(
