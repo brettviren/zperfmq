@@ -28,13 +28,8 @@
 
   <class name="zperf" />
 
-  <!-- deprecated 
-  <actor name = "zecho">A message echo service</actor>
-  <actor name = "zplat">A round-trip latency measure</actor>
-
-  <actor name = "zpray">A message spray service</actor>  
-  <actor name = "zpthr">A throughput measure</actor>  
-  -->
+  <main name="zperfcli" />
+  <!-- todo: zperfd and zperfc -->
 
   <target name = "travis" >
     <option name = "check_zproject" value = "1" />

@@ -15,6 +15,8 @@ zperf.txt
 zperf.doc
 perf.txt
 perf.doc
+zperfcli.txt
+zperfcli.doc
 
 # Make sure to track the manually maintained project description
 !*.adoc

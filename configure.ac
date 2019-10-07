@@ -524,6 +524,16 @@ fi
      AC_MSG_RESULT([$enable_dist_cmakefiles])])
 AM_CONDITIONAL(ENABLE_DIST_CMAKEFILES, test "x$enable_dist_cmakefiles" = "xyes")
 
+# Check for zperfcli intent
+AC_ARG_ENABLE([zperfcli],
+    AS_HELP_STRING([--enable-zperfcli],
+        [Compile and install 'zperfcli' [default=yes]]),
+    [enable_zperfcli=$enableval],
+    [enable_zperfcli=yes])
+
+AM_CONDITIONAL([ENABLE_ZPERFCLI], [test x$enable_zperfcli != xno])
+AM_COND_IF([ENABLE_ZPERFCLI], [AC_MSG_NOTICE([ENABLE_ZPERFCLI defined])])
+
 # Check for zperfmq_selftest intent
 AC_ARG_ENABLE([zperfmq_selftest],
     AS_HELP_STRING([--enable-zperfmq_selftest],

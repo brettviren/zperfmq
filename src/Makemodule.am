@@ -48,6 +48,13 @@ endif
 
 src_libzperfmq_la_LIBADD = ${project_libs}
 
+if ENABLE_ZPERFCLI
+bin_PROGRAMS += src/zperfcli
+src_zperfcli_CPPFLAGS = ${AM_CPPFLAGS}
+src_zperfcli_LDADD = ${program_libs}
+src_zperfcli_SOURCES = src/zperfcli.cpp
+endif #ENABLE_ZPERFCLI
+
 if ENABLE_ZPERFMQ_SELFTEST
 check_PROGRAMS += src/zperfmq_selftest
 noinst_PROGRAMS += src/zperfmq_selftest
@@ -63,6 +70,7 @@ dist_api_DATA = \
 
 # define custom target for all products of /src
 src: \
+		src/zperfcli \
 		src/zperfmq_selftest \
 		src/libzperfmq.la
 

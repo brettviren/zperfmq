@@ -323,6 +323,32 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/zperfmqConfig.cmake
 # executables
 ########################################################################
 add_executable(
+    zperfcli
+    "${SOURCE_DIR}/src/zperfcli.cpp"
+)
+if (TARGET zperfmq)
+target_link_libraries(
+    zperfcli
+    zperfmq
+    ${LIBZMQ_LIBRARIES}
+    ${CZMQ_LIBRARIES}
+    ${OPTIONAL_LIBRARIES}
+)
+endif()
+if (NOT TARGET zperfmq AND TARGET zperfmq-static)
+target_link_libraries(
+    zperfcli
+    zperfmq-static
+    ${LIBZMQ_LIBRARIES}
+    ${CZMQ_LIBRARIES}
+    ${OPTIONAL_LIBRARIES}
+    ${OPTIONAL_LIBRARIES_STATIC}
+)
+endif()
+install(TARGETS zperfcli
+    RUNTIME DESTINATION bin
+)
+add_executable(
     zperfmq_selftest
     "${SOURCE_DIR}/src/zperfmq_selftest.cpp"
 )
@@ -425,6 +451,7 @@ set(cmake_generated ${CMAKE_BINARY_DIR}/CMakeCache.txt
                     ${CMAKE_BINARY_DIR}/src/libzperfmq.pc
                     ${CMAKE_BINARY_DIR}/src/libzperfmq.so
                     ${CMAKE_BINARY_DIR}/src/zperfmq_selftest
+                    ${CMAKE_BINARY_DIR}/src/zperfcli
                     ${CMAKE_BINARY_DIR}/src/zperfmq_selftest
 )
 
