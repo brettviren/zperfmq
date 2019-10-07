@@ -30,6 +30,15 @@ Command line interface to a single ~zperf~ /measurement/:
   $ zperfcli --help
 #+end_example
 
+Python bindings:
+#+begin_example
+  $ python3 -m venv venv && source venv/bin/activate
+  $ pip install .
+  $ python -c 'from zperfmq import Zperf; Zperf.test(0)'
+#+end_example
+
+For that last one to work, the ~libzperfmq.so~ must be found.  A ~zperf~ instance can be created as, eg ~z = Zperf(4)~.
+
 * Overview
 
 The ~libzmq~ package itself provides some very useful performance tools.  The ZeroMQ wiki has guidance on [[http://wiki.zeromq.org/results:perf-howto][using them]] and some [[http://wiki.zeromq.org/area:results][results]] (see also the [[http://wiki.zeromq.org/whitepapers:measuring-performance][performance whitepaper]]).  The ~zperfmq~ package provides much of the same functionality with these additional goals to provide:
@@ -41,7 +50,8 @@ The ~libzmq~ package itself provides some very useful performance tools.  The Ze
 - [ ] a zproject server interface to the ~perf~ actor
 - [ ] functionality for ongoing network monitoring
 - [ ] hooks to time-series databases (eg fill Graphite via STREAM socket)
-- [ ] automation of measurement campaigns 
+- [X] Python bindings
+- [ ] automation of measurement campaigns
 - [ ] generation of plots of results (with Python/matplotlib)
 - [ ] support for PUB/SUB throughput and message loss 
 
