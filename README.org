@@ -9,6 +9,7 @@ The ~libzmq~ package itself provides some very useful performance tools.  The Ze
 - [X] measure CPU% during a performance measurement
 - [X] performance testing code as a [[https://github.com/zeromq/czmq/][CZMQ]] actor (~perf_actor~).
 - [X] a [[https://github.com/zeromq/zproject/][zproject]] API (~zperf~) to that actor
+- [ ] a single CLI for performing any measurement
 - [ ] a zproject server interface to the ~perf~ actor
 - [ ] functionality for ongoing network monitoring
 - [ ] hooks to time-series databases (eg fill Graphite via STREAM socket)
