@@ -112,9 +112,16 @@ int main (int argc, char *argv [])
 
     CLI11_PARSE(app, argc, argv);
 
+    zsys_init();
+    if (niothreads > 1) {
+        zsys_set_io_threads (niothreads);
+    }
+
     json res = {
         {"socket_type", stype},
         {"measurement", meas},
+        {"niothreads", niothreads},
+        {"nconnects", nconnects}
     };
 
     const int snum = socket_type(stype);
@@ -131,7 +138,9 @@ int main (int argc, char *argv [])
     else {
         res["attachment"] = "connect";
         res["endpoint"] = connect;
-        zperf_connect(zperf, connect.c_str());
+        for (int count=0; count<nconnects; ++count) {
+            zperf_connect(zperf, connect.c_str());
+        }
     }
 
     res["time_us"]  = run_it(zperf, meas, nmsgs, msgsize);
