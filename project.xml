@@ -9,7 +9,7 @@
     >
   <include filename = "license.xml" />
   <version major = "0" minor = "0" patch = "0" />
-  <use project = "czmq"/>
+  <use project = "czmq" language="C++" />
 
   <classfilename use-cxx = "true" use-cxx-gcc-4-9 = "true"
                  pkgincludedir = "false" keep-tree = "true" pretty-print = "no"

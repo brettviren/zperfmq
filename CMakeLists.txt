@@ -140,7 +140,7 @@ message(STATUS "Detected ZPERFMQ Version - ${ZPERFMQ_VERSION}")
 # includes
 ########################################################################
 set (zperfmq_headers
-    include/zperfmq_library.h
+    include/zperfmq_library.hpp
     include/zperfmq.hpp
 )
 

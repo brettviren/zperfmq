@@ -129,3 +129,5 @@ nbproject/
 # editor backups
 *~
 venv
+*.egg-info
+dist
