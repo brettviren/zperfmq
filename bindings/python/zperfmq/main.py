@@ -194,10 +194,19 @@ def run_plan(plans):
         nonlocal last_plan
         last_plan = plan
 
+    def str_plan(plan):
+        t = 'connect'
+        if 'bind' in plan:
+            t = 'bind'
+        a = plan[t]
+        return '{measurement} {socket} {nmsgs} {att_type} {att_addr} {msgsize}'.format(att_type=t, att_addr=a, **plan)
+
     ret = list()
     for plan in plans:
         check_plan(plan)
         assert(perf)
+
+        print (str_plan(plan))
 
         nmsgs, msgsize = plan['nmsgs'], plan['msgsize']
         meth = dict(echo  = lambda : perf.echo(nmsgs),
@@ -225,16 +234,92 @@ def sysinfo(output):
 
 @cli.command('run')
 @click.argument('planfile', type=click.File('rb'), default='-')
-@click.argument('outfile', type=click.File('wb'), default='-')
-def run(planfile, outfile):
+@click.argument('runfile', type=click.File('wb'), default='-')
+def run(planfile, runfile):
     '''
     Execute a measurement plan.
     '''
     plan = json.loads(planfile.read())
     res = run_plan(plan)
     ret = dict(results=res, plan=plan, sysinfo=get_sysinfo())
-    outfile.write(json.dumps(ret, indent=4).encode())
+    runfile.write(json.dumps(ret, indent=4).encode())
 
+
+def get_net_info(nics, addr):
+    ip = addr.split('//')[1].split(':')[0]
+    for nic, dat in nics.items():
+        for pd in dat['protos'].values():
+            if pd['address'] == ip:
+                return pd
+    return None
+
+def flatten_results(plans, results):
+    '''
+    Convert from list of objects to object of arrays
+    '''
+    import numpy as np
+    dat = list()
+    for p,r in zip(plans, results):
+        dat.append((p['msgsize'], p['nmsgs'],
+                    r['time_us'], r['cpu_us'], r['nbytes'], r['noos']))
+    dat.sort()
+    arr = np.asarray(dat).T
+    return dict(
+        msgsize = arr[0],
+        nmsgs = arr[1],
+        time_us = arr[2],
+        cpu_us = arr[3],
+        nbytes = arr[4],
+        noos = arr[5])
+
+# def junk():
+    # res = dat['results']
+    # if type(res) == dict:
+    #     res = [res]
+    # plan = dat['plan']
+    # if type(plan) == dict:
+    #     plan = [plan]
+    # si = dat['sysinfo']
+
+    # ni = get_net_info(si['nics'], plan[0].get('bind') or plan[0].get('connect'));
+    # if ni and ni['speed']:
+
+@cli.command('plot-lat')
+@click.argument('echofile', type=click.File('rb'), default='-')
+@click.argument('yodelfile', type=click.File('rb'), default='-')
+@click.argument('pltfile', type=click.Path(), default='-')
+def plot_lat(echofile, yodelfile, pltfile):
+    '''
+    Generate latency result plot similar to libzmq's
+    "generate_graphs.py"
+    '''
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    edat = json.loads(echofile.read())
+    ydat = json.loads(yodelfile.read())
+    eres = edat['results']
+    yres = ydat['results']
+    epln = edat['plan']
+    ypln = ydat['plan']
+
+    yp0 = ypln[0]
+    addr = yp0.get('bind') or yp0.get('connect')
+    scheme, rest = addr.split(':',1)
+
+    yarr = flatten_results(ypln, yres)
+
+    title = "ZeroMQ %s/%s socket latency, %s transport" % \
+        (ypln[0]['socket'], epln[0]['socket'], scheme.upper())
+
+    plt.semilogx(yarr['msgsize'], yarr['time_us']/yarr['nmsgs'],
+                 label='Latency [us]', marker='o')
+    
+    plt.xlabel('Message size [B]')
+    plt.ylabel('Latency [us]')
+    plt.grid(True)
+    plt.title(title)
+    plt.savefig(pltfile)
 
 def main():
     cli()
