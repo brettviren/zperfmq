@@ -439,8 +439,8 @@ perf_recv_api (perf_t *self)
         char *value = zmsg_popstr (request);
         int nmsgs = atoi(value);
         free (value);
-        perf_echo_zmq (self, nmsgs);
-        //perf_echo_czmq (self, nmsgs);
+        //perf_echo_zmq (self, nmsgs);
+        perf_echo_czmq (self, nmsgs);
     }
     // YODEL <nmsgs> <msgsize> ->
     // YODEL <nmsgs> <msgsize> <time_us> <cpu_us> <noos>
@@ -452,9 +452,9 @@ perf_recv_api (perf_t *self)
         const size_t msgsize = atol(value);
         free (value);        
         // about 50 us on localhost for kB or smaller
-        perf_yodel_zmq (self, nmsgs, msgsize);
+        // perf_yodel_zmq (self, nmsgs, msgsize);
         // about 10 us slower 
-        // perf_yodel_czmq (self, nmsgs, msgsize);
+        perf_yodel_czmq (self, nmsgs, msgsize);
     }
     // SEND <nmsgs> <msgsize> ->
     // SEND <nmsgs> <msgsize> <time_us> <cpu_us>
