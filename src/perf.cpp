@@ -139,8 +139,71 @@ static uint64_t s_cpu_now()
 
 // Run an echo service.  Return results down pipe.
 
+// libzmq version
+
 static int
-perf_echo (perf_t *self, int nmsgs)
+perf_echo_zmq (perf_t *self, int nmsgs)
+{
+    assert (self);
+
+    int rc = 0;
+
+    size_t totdat = 0;
+    void* watch = NULL;
+    uint64_t cpu_start = 0;
+
+    void* s = zsock_resolve(self->sock);
+    assert(s);
+    zmq_msg_t msg;
+    rc = zmq_msg_init (&msg);
+    if (rc < 0) {
+        zsys_error ("echo: error in zmq_msg_init: %s\n", zmq_strerror (errno));
+        return rc;
+    }
+
+    // double the message to account for multipart (count, payload)
+    for (int count=0; count < 2*nmsgs; ++count) {
+
+        rc = zmq_recvmsg (s, &msg, 0);
+        if (rc < 0) {
+            zsys_error ("echo: error in zmq_recvmsg: %s\n", zmq_strerror (errno));
+            return -1;
+        }
+
+        if (!watch) {           // start after first yodel received
+            watch = zmq_stopwatch_start();
+            cpu_start = s_cpu_now();
+        }
+
+        // libzmq perf checks size, here we trust....
+        totdat += zmq_msg_size (&msg);
+
+        rc = zmq_sendmsg (s, &msg, 0);
+        if (rc < 0) {
+            zsys_error ("echo: error in zmq_sendmsg: %s\n", zmq_strerror (errno));
+            return -1;
+        }
+    }
+    rc = zmq_msg_close (&msg);
+    if (rc != 0) {
+        zsys_error ("echo: error in zmq_msg_close: %s\n", zmq_strerror (errno));
+        return -1;
+    }
+
+    const int64_t elapsed = zmq_stopwatch_stop(watch);
+    const uint64_t cpu_us = s_cpu_now() - cpu_start;
+
+    // ECHO <nmsgs> <total_size> <time_us> <cpu_us>
+    rc = zsock_send(self->pipe, "si88", "ECHO",
+                    nmsgs, totdat, elapsed, cpu_us);
+
+    return rc;
+}
+
+// czmq version
+
+static int
+perf_echo_czmq (perf_t *self, int nmsgs)
 {
     assert (self);
 
@@ -173,7 +236,71 @@ perf_echo (perf_t *self, int nmsgs)
 // down pipe.
 
 static int
-perf_yodel (perf_t *self, int nmsgs, size_t msgsize)
+perf_yodel_zmq (perf_t *self, int nmsgs, size_t msgsize)
+{
+    assert (self);
+
+    void* s = zsock_resolve(self->sock);
+    assert(s);
+    zmq_msg_t payload;
+    int rc = zmq_msg_init_size (&payload, msgsize);
+    if (rc != 0) {
+        zsys_error ("yodel: error in zmq_msg_init_size: %s\n", zmq_strerror (errno));
+        return -1;
+    }
+    memset (zmq_msg_data (&payload), 0, msgsize);
+
+    int noos = 0;
+    void* watch = zmq_stopwatch_start();
+    uint64_t cpu_start = s_cpu_now();
+
+    for (int count=0; count < nmsgs; ++count) {
+        rc = zmq_send(s, &count, sizeof(int), ZMQ_SNDMORE);
+        if (rc < 0) {
+            zsys_error ("yodel: error in zmq_send: %s\n", zmq_strerror (errno));
+            return -1;
+        }
+        rc = zmq_sendmsg(s, &payload, 0);
+        if (rc < 0) {
+            zsys_error ("yodel: error in zmq_sendmsg: %s\n", zmq_strerror (errno));
+            return -1;
+        }
+        int got_count = 0;
+        size_t got_size = zmq_recv(s, &got_count, sizeof(int), 0);
+        if (got_size != sizeof(int)) {
+            zsys_error ("yodel: got wrong size");
+            return -1;
+        }
+        if (count != got_count) {
+            ++noos;             /* number out-of-sync */
+        }
+        rc = zmq_recvmsg(s, &payload, 0);
+        if (rc < 0) {
+            zsys_error ("yodel: error in zmq_recvmsg: %s\n", zmq_strerror (errno));
+            return -1;
+        }
+        if (zmq_msg_size(&payload) != msgsize) {
+            zsys_error ("yodel: message size mismatch");
+            return -1;
+        }
+    }
+    const int64_t elapsed = zmq_stopwatch_stop(watch);
+    const uint64_t cpu_us = s_cpu_now() - cpu_start;
+
+    rc = zmq_msg_close (&payload);
+    if (rc != 0) {
+        zsys_error ("yodel: error in zmq_msg_close: %s\n", zmq_strerror (errno));
+        return -1;
+    }
+
+    // YODEL <nmsgs> <msgsize> <time_us> <cpu_us> <noos>
+    rc = zsock_send(self->pipe, "si888i", "YODEL",
+                    nmsgs, msgsize, elapsed, cpu_us, noos);
+    return rc;
+}
+
+static int
+perf_yodel_czmq (perf_t *self, int nmsgs, size_t msgsize)
 {
     assert (self);
 
@@ -312,7 +439,8 @@ perf_recv_api (perf_t *self)
         char *value = zmsg_popstr (request);
         int nmsgs = atoi(value);
         free (value);
-        perf_echo (self, nmsgs);
+        perf_echo_zmq (self, nmsgs);
+        //perf_echo_czmq (self, nmsgs);
     }
     // YODEL <nmsgs> <msgsize> ->
     // YODEL <nmsgs> <msgsize> <time_us> <cpu_us> <noos>
@@ -323,7 +451,10 @@ perf_recv_api (perf_t *self)
         value = zmsg_popstr (request);
         const size_t msgsize = atol(value);
         free (value);        
-        perf_yodel (self, nmsgs, msgsize);
+        // about 50 us on localhost for kB or smaller
+        perf_yodel_zmq (self, nmsgs, msgsize);
+        // about 10 us slower 
+        // perf_yodel_czmq (self, nmsgs, msgsize);
     }
     // SEND <nmsgs> <msgsize> ->
     // SEND <nmsgs> <msgsize> <time_us> <cpu_us>

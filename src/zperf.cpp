@@ -32,6 +32,9 @@ struct _zperf_t {
 zperf_t *
 zperf_new (int socket_type)
 {
+    // // inject niothreads here?
+    // zmq_init(1);
+
     zperf_t *self = (zperf_t *) zmalloc (sizeof (zperf_t));
     assert (self);
     //  Initialize class properties here

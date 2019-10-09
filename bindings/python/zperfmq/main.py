@@ -2,6 +2,8 @@
 
 import json
 import click
+import matplotlib.pyplot as plt
+import numpy as np
 
 @click.group()
 def cli():
@@ -250,14 +252,13 @@ def get_net_info(nics, addr):
     for nic, dat in nics.items():
         for pd in dat['protos'].values():
             if pd['address'] == ip:
-                return pd
+                return dat
     return None
 
 def flatten_results(plans, results):
     '''
     Convert from list of objects to object of arrays
     '''
-    import numpy as np
     dat = list()
     for p,r in zip(plans, results):
         dat.append((p['msgsize'], p['nmsgs'],
@@ -272,6 +273,8 @@ def flatten_results(plans, results):
         nbytes = arr[4],
         noos = arr[5])
 
+
+
 # def junk():
     # res = dat['results']
     # if type(res) == dict:
@@ -284,6 +287,18 @@ def flatten_results(plans, results):
     # ni = get_net_info(si['nics'], plan[0].get('bind') or plan[0].get('connect'));
     # if ni and ni['speed']:
 
+def attachment(plan):
+    if type(plan) == list:
+        plan = plan[0]
+    if 'bind' in plan:
+        return 'bind', plan['bind']
+    return 'connect', plan['connect']
+
+def kmgt(number):
+    unum = (len(str(number))-1)//3
+    return "%.0f%s" %(number/10**(3*unum), " kMGT"[unum])
+
+
 @cli.command('plot-lat')
 @click.argument('echofile', type=click.File('rb'), default='-')
 @click.argument('yodelfile', type=click.File('rb'), default='-')
@@ -293,8 +308,6 @@ def plot_lat(echofile, yodelfile, pltfile):
     Generate latency result plot similar to libzmq's
     "generate_graphs.py"
     '''
-    import matplotlib.pyplot as plt
-    import numpy as np
 
     edat = json.loads(echofile.read())
     ydat = json.loads(yodelfile.read())
@@ -303,23 +316,76 @@ def plot_lat(echofile, yodelfile, pltfile):
     epln = edat['plan']
     ypln = ydat['plan']
 
-    yp0 = ypln[0]
-    addr = yp0.get('bind') or yp0.get('connect')
-    scheme, rest = addr.split(':',1)
+    nmsgs = kmgt(ypln[0]['nmsgs'])
+    si = ydat['sysinfo']
+    ni = get_net_info(si['nics'], attachment(ypln)[1])
+    print (ni)
+    speed = ""
+    if ni and ni['speed']:
+        speed = ", %sbps" % kmgt(ni['speed'])
 
+    eatt,eaddr = attachment(epln)
+    yatt,yaddr = attachment(ypln)
+    scheme, rest = eaddr.split(':',1)
+
+    earr = flatten_results(epln, eres)
     yarr = flatten_results(ypln, yres)
 
-    title = "ZeroMQ %s/%s socket latency, %s transport" % \
-        (ypln[0]['socket'], epln[0]['socket'], scheme.upper())
+    title = "ZeroMQ %s latency %s/%s" % \
+        (scheme.upper(),
+         epln[0]['measurement'],
+         ypln[0]['measurement']
+         )
 
-    plt.semilogx(yarr['msgsize'], yarr['time_us']/yarr['nmsgs'],
-                 label='Latency [us]', marker='o')
+    # divide by 2 to convert round-trip to one-way
+    plt.semilogx(yarr['msgsize'], yarr['time_us']/(2.0*yarr['nmsgs']),
+                 label='yodel', marker='o', color='tab:purple')
+    plt.semilogx(earr['msgsize'], earr['time_us']/(2.0*earr['nmsgs']),
+                 label='echo', marker='.', color='tab:green')
     
-    plt.xlabel('Message size [B]')
-    plt.ylabel('Latency [us]')
+    plt.xlabel('Message size [B] (%s msgs per point)' % (nmsgs,))
+    plt.ylabel('One-way latency [us]')
     plt.grid(True)
+    plt.legend()
     plt.title(title)
     plt.savefig(pltfile)
+
+@cli.command('plot-cpu')
+@click.argument('resfile1', type=click.File('rb'), default='-')
+@click.argument('resfile2', type=click.File('rb'), default='-')
+@click.argument('pltfile', type=click.Path(), default='-')
+def plot_cpu(resfile1, resfile2, pltfile):
+    '''
+    Plot CPU usage.
+    '''
+    dats = [json.loads(resfile1.read()), json.loads(resfile2.read())]
+    ress = [d['results'] for d in dats]
+    plns = [d['plan'] for d in dats]
+    arrs = [flatten_results(p, r) for p,r in zip(plns, ress)]
+
+    nmsgs = kmgt(plns[0][0]['nmsgs'])
+
+    title = "ZeroMQ CPU usage for %s/%s" % \
+        (plns[0][0]['measurement'], plns[1][0]['measurement'])
+
+    colors = ['tab:orange','tab:brown']
+    markers = ['.','o']
+    for which in [1,0]:
+        arr = arrs[which]
+        pln = plns[which]
+        plt.semilogx(arr['msgsize'], 100.0*arr['cpu_us']/arr['time_us'],
+                     label=pln[0]['measurement'], marker=markers[which], color=colors[which])
+    plt.xlabel('Message size [B] (%s msgs per point)' % (nmsgs,))
+    plt.ylabel('CPU [%]');
+    plt.legend()
+    # nperc = int(max(cpu))
+    # ax3.set_yticks(numpy.arange(0, 100*(nperc + 1), 100)) 
+    # ax3.tick_params(axis='y', labelcolor=color)
+    plt.grid(True)
+    plt.title(title)
+    plt.tight_layout()  # otherwise the right y-label is slightly clippe
+    plt.savefig(pltfile)
+
 
 def main():
     cli()
