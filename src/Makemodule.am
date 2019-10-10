@@ -20,7 +20,9 @@ src_libzperfmq_la_SOURCES += \
     src/zperf.cpp \
     src/zperf_msg.cpp \
     src/zperf_server.cpp \
+    src/zperf_server_engine.inc \
     src/zperf_client.cpp \
+    src/zperf_client_engine.inc \
     src/perf.cpp
 
 endif

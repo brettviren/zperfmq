@@ -1,10 +1,11 @@
+<!-- must run gsl src directory -->
 <class
-    name = "zperf_proto"
+    name = "zperf_msg"
     title = "The Zperf Protocol"
     script = "zproto_codec_c"
     package_dir = "../include"
     >
-  <include filename = "../license.h" />
+  <include filename = "../license.xml" />
 
   <grammar>
     hydra = hello socket *( measure | heartbeat ) [ goodbye ]

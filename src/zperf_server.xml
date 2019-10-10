@@ -1,10 +1,11 @@
+<!-- msg run gsl from src directory -->
 <class
     name = "zperf_server"
     title = "Zperf Server (in C)"
     script = "zproto_server_c"
     protocol_class = "zperf_msg"
     package_dir = "../include"
-    project_header = "zperf_classes.hpp"
+    project_header = "zperfmq_classes.hpp"
     >
   This is a server implementing the Zperf Protocol.
 

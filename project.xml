@@ -30,6 +30,11 @@
     Synchronous API to perf actor.
   </class>
 
+  <!-- This needed to get things into the build but will make
+       .cpp/.hpp.  Will need manually run gsl on the *.xml files under
+       src and overrite the .cpp/.hpp generated with the the .h/.c
+       these generate.  Will also need to edit them to #include proper
+       extensions.... -->
   <class name = "zperf_msg" />
   <class name = "zperf_server" />
   <class name = "zperf_client" />
@@ -37,6 +42,7 @@
   <model name = "zperf_msg" />
   <model name = "zperf_server" />
   <model name = "zperf_client" />
+
 
   <main name="zperfcli" />
   <!-- todo: zperfd and zperfc -->

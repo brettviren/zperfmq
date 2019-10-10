@@ -1,5 +1,5 @@
 /*  =========================================================================
-    zperf_client - class description
+    zperf_client - Zperf Client
 
     LGPL 3.0
     =========================================================================
@@ -7,75 +7,221 @@
 
 /*
 @header
-    zperf_client -
+    Description of class for man page.
 @discuss
+    Detailed discussion of the class, if any.
 @end
 */
 
 #include "zperfmq_classes.hpp"
+//  TODO: Change these to match your project's needs
+#include "../include/zperf_msg.hpp"
+#include "../include/zperf_client.hpp"
 
-//  Structure of our class
+//  Forward reference to method arguments structure
+typedef struct _client_args_t client_args_t;
 
-struct _zperf_client_t {
-    int filler;     //  Declare class properties here
-};
+//  This structure defines the context for a client connection
+typedef struct {
+    //  These properties must always be present in the client_t
+    //  and are set by the generated engine. The cmdpipe gets
+    //  messages sent to the actor; the msgpipe may be used for
+    //  faster asynchronous message flows.
+    zsock_t *cmdpipe;           //  Command pipe to/from caller API
+    zsock_t *msgpipe;           //  Message pipe to/from caller API
+    zsock_t *dealer;            //  Socket to talk to server
+    zperf_msg_t *message;       //  Message to/from server
+    client_args_t *args;        //  Arguments from methods
 
+    //  TODO: Add specific properties for your application
+} client_t;
 
-//  --------------------------------------------------------------------------
-//  Create a new zperf_client
+//  Include the generated client engine
+#include "zperf_client_engine.inc"
 
-zperf_client_t *
-zperf_client_new (void)
+//  Allocate properties and structures for a new client instance.
+//  Return 0 if OK, -1 if failed
+
+static int
+client_initialize (client_t *self)
 {
-    zperf_client_t *self = (zperf_client_t *) zmalloc (sizeof (zperf_client_t));
-    assert (self);
-    //  Initialize class properties here
-    return self;
+    return 0;
+}
+
+//  Free properties and structures for a client instance
+
+static void
+client_terminate (client_t *self)
+{
+    //  Destroy properties here
 }
 
 
-//  --------------------------------------------------------------------------
-//  Destroy the zperf_client
-
-void
-zperf_client_destroy (zperf_client_t **self_p)
-{
-    assert (self_p);
-    if (*self_p) {
-        zperf_client_t *self = *self_p;
-        //  Free class properties here
-        //  Free object itself
-        free (self);
-        *self_p = NULL;
-    }
-}
-
-//  --------------------------------------------------------------------------
-//  Self test of this class
-
-// If your selftest reads SCMed fixture data, please keep it in
-// src/selftest-ro; if your test creates filesystem objects, please
-// do so under src/selftest-rw.
-// The following pattern is suggested for C selftest code:
-//    char *filename = NULL;
-//    filename = zsys_sprintf ("%s/%s", SELFTEST_DIR_RO, "mytemplate.file");
-//    assert (filename);
-//    ... use the "filename" for I/O ...
-//    zstr_free (&filename);
-// This way the same "filename" variable can be reused for many subtests.
-#define SELFTEST_DIR_RO "src/selftest-ro"
-#define SELFTEST_DIR_RW "src/selftest-rw"
+//  ---------------------------------------------------------------------------
+//  Selftest
 
 void
 zperf_client_test (bool verbose)
 {
     printf (" * zperf_client: ");
+    if (verbose)
+        printf ("\n");
 
     //  @selftest
-    //  Simple create/destroy test
-    zperf_client_t *self = zperf_client_new ();
-    assert (self);
-    zperf_client_destroy (&self);
+    // TODO: fill this out
+    zperf_client_t *client = zperf_client_new ();
+    zperf_client_set_verbose(client, verbose);
+    zperf_client_destroy (&client);
     //  @end
     printf ("OK\n");
+}
+
+
+//  ---------------------------------------------------------------------------
+//  connect_to_server_endpoint
+//
+
+static void
+connect_to_server_endpoint (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  set_client_identity
+//
+
+static void
+set_client_identity (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  use_connect_timeout
+//
+
+static void
+use_connect_timeout (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_bad_endpoint
+//
+
+static void
+signal_bad_endpoint (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_success
+//
+
+static void
+signal_success (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_connected
+//
+
+static void
+signal_connected (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  set_socket_request
+//
+
+static void
+set_socket_request (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  set_measurement_request
+//
+
+static void
+set_measurement_request (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_socket_request
+//
+
+static void
+signal_socket_request (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  set_results
+//
+
+static void
+set_results (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_results
+//
+
+static void
+signal_results (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  check_if_connection_is_dead
+//
+
+static void
+check_if_connection_is_dead (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  client_is_connected
+//
+
+static void
+client_is_connected (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  check_status_code
+//
+
+static void
+check_status_code (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_internal_error
+//
+
+static void
+signal_internal_error (client_t *self)
+{
 }

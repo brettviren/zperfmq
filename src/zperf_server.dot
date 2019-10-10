@@ -1,0 +1,40 @@
+## Automatically generated from zperf_server.xml by gsl
+digraph "zperf_server" {
+
+ "start" [shape = "doublecircle"];
+ "start expired" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "start" -> "start expired";
+ "start expired" -> "start";
+ "start exception" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">exception</font></td></tr><tr><td align="left" port="r3">send (error)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "start" -> "start exception";
+ "start exception" -> "start";
+ "start hello" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">hello</font></td></tr><tr><td align="left" port="r3">create perf</td></tr><tr><td align="left" port="r3">send (hello ok)</td></tr></table>>];
+ "start" -> "start hello";
+ "start hello" -> "connected";
+ "start *" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr><tr><td align="left" port="r3">signal command invalid</td></tr><tr><td align="left" port="r3">send (error)</td></tr></table>>];
+ "start" -> "start *";
+ "start *" -> "start";
+
+ "connected" [shape = "doublecircle"];
+ "connected expired" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "connected" -> "connected expired";
+ "connected expired" -> "connected";
+ "connected exception" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">exception</font></td></tr><tr><td align="left" port="r3">send (error)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "connected" -> "connected exception";
+ "connected exception" -> "connected";
+ "connected *" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr><tr><td align="left" port="r3">signal command invalid</td></tr><tr><td align="left" port="r3">send (error)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "connected" -> "connected *";
+ "connected *" -> "connected";
+ "connected socket" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">socket</font></td></tr><tr><td align="left" port="r3">connect or bind</td></tr><tr><td align="left" port="r3">send (socket ok)</td></tr></table>>];
+ "connected" -> "connected socket";
+ "connected socket" -> "connected";
+ "connected measure" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">measure</font></td></tr><tr><td align="left" port="r3">take measurement</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
+ "connected" -> "connected measure";
+ "connected measure" -> "connected";
+ "connected ping" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ping</font></td></tr><tr><td align="left" port="r3">send (ping ok)</td></tr></table>>];
+ "connected" -> "connected ping";
+ "connected ping" -> "connected";
+ "connected goodbye" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">goodbye</font></td></tr><tr><td align="left" port="r3">send (goodbye ok)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "connected" -> "connected goodbye";
+ "connected goodbye" -> "connected";
+}

@@ -1,13 +1,16 @@
+<!-- must run gsl from src directory -->
 <class
     name = "zperf_client"
     title = "Zperf Client"
     script = "zproto_client_c" 
     protocol_class = "zperf_msg"
     package_dir = "../include"
-    project_header = "zperf_classes.hpp"
+    project_header = "zperfmq_classes.hpp"
     >
   This is a Zperf client.  It can be used to request a perf
   measurement from the Zperf server.
+
+  <include filename = "../license.xml" />
 
   <state name = "start">
     <event name = "connect" next = "expect hello ok">
@@ -63,6 +66,17 @@
     </event>
   </state>
 
+  <state name = "expect goodbye ok" inherit = "defaults">
+    <event name = "GOODBYE OK">
+      <action name = "signal success" />
+      <action name = "terminate" />
+    </event>
+    <event name = "*">
+      <!-- Ignore anything else the server may send us -->
+    </event>
+  </state>
+
+
   <state name = "defaults">
     <event name = "destructor" next = "expect goodbye ok">
       <action name = "send" message = "GOODBYE" />
@@ -74,8 +88,9 @@
     <event name = "PING OK">
       <action name = "client is connected" />
     </event>
-    <event name = "ERROR" next = "have error">
+    <event name = "ERROR" >
       <action name = "check status code" />
+      <action name = "terminate" />
     </event>
     <event name = "exception">
       <!-- Generic exception event to interrupt actions -->

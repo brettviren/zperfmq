@@ -1,0 +1,86 @@
+The following ABNF grammar defines the The Zperf Protocol:
+
+    hydra = hello socket *( measure | heartbeat ) [ goodbye ]
+    hello   = C:HELLO   ( S:HELLO-OK   / S:INVALID / S:FAILED )
+    socket  = C:SOCKET  ( S:SOCKET-OK  / S:INVALID / S:FAILED )
+    measure = C:MEASURE ( S:RESULT     / S:INVALID / S:FAILED )
+    heartbeat = C:PING S:PING-OK
+    goodbye = C:GOODBYE ( S:GOODBYE-OK / S:INVALID / S:FAILED )
+
+    ;  Create a perf on the server associated with the client.
+
+    HELLO           = signature %d1 nickname mtype stype
+    signature       = %xAA %xA0             ; two octets
+    nickname        = string                ; Client nickname
+    mtype           = string                ; Measurement type
+    stype           = string                ; Socket type
+
+    ;  Create a perf on the server associated with the client.
+
+    HELLO-OK        = signature %d2 nickname mtype stype
+    nickname        = string                ; Client nickname
+    mtype           = string                ; Measurement type
+    stype           = string                ; Socket type
+
+    ;  Bind or connect the measurement socket to the address.
+
+    SOCKET          = signature %d3 action endpoint
+    action          = string                ; Bind or Connect
+    endpoint        = string                ; Address
+
+    ;  Bind or connect the measurement socket to the address.
+
+    SOCKET-OK       = signature %d4 action endpoint
+    action          = string                ; Bind or Connect
+    endpoint        = string                ; Address
+
+    ;  Initiate a measurement.
+
+    MEASURE         = signature %d5 nmsgs msgsize timeout
+    nmsgs           = number-4              ; Number of messages
+    msgsize         = number-8              ; Message size in bytes
+    timeout         = number-4              ; Timeout in msec
+
+    ;  The results of a measurement.
+
+    RESULT          = signature %d6 nmsgs msgsize timeout time_us cpu_us noos nbytes
+    nmsgs           = number-4              ; Number of messages
+    msgsize         = number-8              ; Message size in bytes
+    timeout         = number-8              ; Timeout in millisec
+    time_us         = number-8              ; Time elapsed in microseconds
+    cpu_us          = number-8              ; CPU time used (user+system) in microseconds
+    noos            = number-4              ; Number of out-of-order messages
+    nbytes          = number-8              ; Number of bytes processed
+
+    ;  Client pings the server. Server replies with PING-OK, or ERROR with
+    ;  status COMMAND-INVALID if the client is not recognized (e.g. after a
+    ;  server restart or network recovery).
+
+    PING            = signature %d7
+
+    ;  Server replies to a client ping.
+
+    PING-OK         = signature %d8
+
+    ;  Close the connection politely
+
+    GOODBYE         = signature %d9
+
+    ;  Handshake a connection close
+
+    GOODBYE-OK      = signature %d10
+
+    ;  Command failed for some specific reason
+
+    ERROR           = signature %d11 status reason
+    status          = number-2              ; 3-digit status code
+    reason          = string                ; Printable explanation
+
+    ; Strings are always length + text contents
+    string          = number-1 *VCHAR
+
+    ; Numbers are unsigned integers in network byte order
+    number-1        = 1OCTET
+    number-2        = 2OCTET
+    number-4        = 4OCTET
+    number-8        = 8OCTET
