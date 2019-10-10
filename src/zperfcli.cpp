@@ -148,6 +148,9 @@ int main (int argc, char *argv [])
     res["nbytes"] = zperf_bytes(zperf);
     res["cpu_us"] = zperf_cpu(zperf);
 
+    zsys_debug("sleeping");
+    zclock_sleep(3000);
+
     zperf_destroy(&zperf);
     res["end_us"] = now();
 

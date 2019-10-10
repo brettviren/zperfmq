@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import json
+import time
 import click
 import matplotlib.pyplot as plt
 import numpy as np
@@ -48,7 +49,22 @@ def plan(niothreads, nconnects, nmsgs, msgsize, bind, connect, measurement, sock
         res.pop('connect')
     output.write(json.dumps(res, indent=4).encode())
 
-@cli.command("lat-plan")
+
+def map_msgsize(msgsizes, size_units):
+    if not msgsizes:
+        raise ValueError("must supply at least one message size")
+    msgsizes = map(float, msgsizes)
+
+    smeth = lambda x: int(x)
+    if size_units == "log2":
+        smeth = lambda x: int(2**x)
+    if size_units == "log10":
+        smeth = lambda x: int(10**x)
+
+    return map(smeth, msgsizes)
+    
+
+@cli.command("plan-lat")
 @click.option('-t', '--niothreads', default=1,
               help="Number of ZeroMQ I/O threads to use (def=1)")
 @click.option('-j', '--nconnects', default=1,
@@ -71,15 +87,7 @@ def lat_plan(niothreads, nconnects, nmsgs, endpoint, reverse, size_units, echo, 
     '''
     Produce two output files for a latency plan.
     '''
-    if not msgsizes:
-        raise ValueError("must supply at least one message size")
-    msgsizes = map(float, msgsizes)
-
-    smeth = lambda x: int(x)
-    if size_units == "log2":
-        smeth = lambda x: int(2**x)
-    if size_units == "log10":
-        smeth = lambda x: int(10**x)
+    msgsizes = map_msgsize(msgsizes, size_units)
 
     common  = dict(niothreads=niothreads,
                    nconnects=nconnects,
@@ -96,12 +104,62 @@ def lat_plan(niothreads, nconnects, nmsgs, endpoint, reverse, size_units, echo, 
     eplan=list()
     yplan=list()
     for msgsize in msgsizes:
-        msgsize = smeth(msgsize)
         eplan.append(dict(edef, msgsize=msgsize))
         yplan.append(dict(ydef, msgsize=msgsize))
 
     echo.write(json.dumps(eplan, indent=4).encode())
     yodel.write(json.dumps(yplan, indent=4).encode())
+
+@cli.command("plan-thr")
+@click.option('-t', '--niothreads', default=1,
+              help="Number of ZeroMQ I/O threads to use (def=1)")
+@click.option('-j', '--nconnects', default=1,
+              help="Number of simultaneous socket connections (def=1)")
+@click.option('-v', '--volume', default="1G",
+              help="Target data volume in bytes (def=1G, also can use M and k)")
+@click.option('-e', '--endpoint', default="tcp://127.0.0.1:5678",
+              help="Fully qualiifed ZeroMQ address (def=tcp://127.0.0.1:5678")
+@click.option('--reverse/--no-reverse', 
+              help="Reverse makes echo connect and yodel bind")
+@click.option('-M', '--size-units', default='log2',
+              type=click.Choice(['linear','log2','log10']),
+              help="Interpretation of message size in bytes (def='linear')")
+@click.option('--send', type=click.File('wb'), default='-',
+              help="Plan file for 'send' measurement")
+@click.option('--recv', type=click.File('wb'), default='-',
+              help="Plan file for 'recv' measurement")
+@click.argument("msgsizes", nargs=-1)
+def thr_plan(niothreads, nconnects, volume, endpoint, reverse, size_units, send, recv, msgsizes):
+    '''
+    Produce two output files for a latency plan.
+    '''
+    msgsizes = map_msgsize(msgsizes, size_units)
+    volume = parse_kmgt(volume)
+
+    common  = dict(niothreads=niothreads,
+                   nconnects=nconnects)
+    sdef = dict(common, socket='PUSH', measurement='send')
+    ddef = dict(common, socket='PULL', measurement='recv')
+    if reverse:
+        ddef['connect'] = endpoint
+        sdef['bind'] = endpoint
+    else:
+        ddef['bind'] = endpoint
+        sdef['connect'] = endpoint
+
+    splan=list()
+    dplan=list()
+    for msgsize in msgsizes:
+        nmsgs = int(volume//msgsize)
+        if nmsgs == 0:
+            print("Not enough data volume for messages of size %d" % msgsize)
+            continue
+        splan.append(dict(sdef, nmsgs=nmsgs, msgsize=msgsize))
+        dplan.append(dict(ddef, nmsgs=nmsgs, msgsize=msgsize))
+
+    send.write(json.dumps(splan, indent=4).encode())
+    recv.write(json.dumps(dplan, indent=4).encode())
+
 
 def get_sysinfo():
     'Return dictionary describing system'
@@ -169,46 +227,45 @@ def run_plan(plans):
 
 
     def make_perf(plan):
-        perf = Zperf(getattr(zmq, plan['socket'].upper()))
+        p = Zperf(getattr(zmq, plan['socket'].upper()))
         if plan.get('connect'):
             url = plan.get('connect').encode()
             for iconn in range(plan.get('nconnects') or 1):
-                perf.connect(url)
+                p.connect(url)
         else:
-            perf.bind(plan.get('bind').encode())
-        return perf
+            p.bind(plan.get('bind').encode())
+        return p
 
-    last_plan = None
-    def zperf_differs(plan):
-        if last_plan is None:
-            return True
-        for key in ['connect','bind','nconnects','socket']:
-            if last_plan.get(key) != plan.get(key):
-                return True
-        return False
+    # last_plan = None
+    # def zperf_differs(plan):
+    #     if last_plan is None:
+    #         return True
+    #     for key in ['connect','bind','nconnects','socket']:
+    #         if last_plan.get(key) != plan.get(key):
+    #             return True
+    #     return False
 
-    perf = None
-    def check_plan(plan):
-        if zperf_differs(plan):
-            print("new zperf")
-            nonlocal perf
-            perf = make_perf(plan)
-        nonlocal last_plan
-        last_plan = plan
+    # perf = None
+    # def check_plan(plan):
+    #     if zperf_differs(plan):
+    #         print("new zperf")
+    #         nonlocal perf
+    #         perf = make_perf(plan)
+    #     nonlocal last_plan
+    #     last_plan = plan
 
-    def str_plan(plan):
+    def stringify(dat):
         t = 'connect'
-        if 'bind' in plan:
+        if 'bind' in dat:
             t = 'bind'
-        a = plan[t]
-        return '{measurement} {socket} {nmsgs} {att_type} {att_addr} {msgsize}'.format(att_type=t, att_addr=a, **plan)
+        a = dat[t]
+        return '{measurement} {socket} {nmsgs} {att_type} {att_addr} {msgsize} {time_us}'.format(att_type=t, att_addr=a, **dat)
 
     ret = list()
     for plan in plans:
-        check_plan(plan)
-        assert(perf)
-
-        print (str_plan(plan))
+        # check_plan(plan)
+        # assert(perf)
+        perf = make_perf(plan)
 
         nmsgs, msgsize = plan['nmsgs'], plan['msgsize']
         meth = dict(echo  = lambda : perf.echo(nmsgs),
@@ -219,9 +276,19 @@ def run_plan(plans):
         res["noos"] = perf.noos();
         res["nbytes"] = perf.bytes();
         res["cpu_us"] = perf.cpu();
+
+        dat = dict(plan, **res);
+        print (stringify(dat))
+
         ret.append(res)
+        del(perf)
+
+        print ("sleeping")
+        time.sleep(3)
+
     if plural:
         return ret
+
     return ret[0]
 
 @cli.command('sysinfo')
@@ -298,6 +365,61 @@ def kmgt(number):
     unum = (len(str(number))-1)//3
     return "%.0f%s" %(number/10**(3*unum), " kMGT"[unum])
 
+def parse_kmgt(text):
+    text = text.lower()
+    if text.endswith('k'):
+        return float(text[:-1])*1e3
+    if text.endswith('m'):
+        return float(text[:-1])*1e6
+    if text.endswith('g'):
+        return float(text[:-1])*1e9
+    if text.endswith('t'):
+        return float(text[:-1])*1e12
+    return float(text)
+
+@cli.command('plot-thr')
+@click.argument('sendfile', type=click.File('rb'), default='-')
+@click.argument('recvfile', type=click.File('rb'), default='-')
+@click.argument('pltfile', type=click.Path(), default='-')
+def plot_thr(sendfile, recvfile, pltfile):
+    '''
+    Generate throughput result plot
+    '''
+    sdat = json.loads(sendfile.read())
+    ddat = json.loads(recvfile.read())
+    sres = sdat['results']
+    dres = ddat['results']
+    spln = sdat['plan']
+    dpln = ddat['plan']
+    sarr = flatten_results(spln, sres)
+    darr = flatten_results(dpln, dres)
+
+    fig, ax1 = plt.subplots()
+
+    title='throughput'
+
+    # PPS axis
+    color = 'tab:red'
+    ax1.set_xlabel('Message size [B]')
+    ax1.set_ylabel('PPS [Mmsg/s]', color=color)
+    ax1.semilogx(darr['msgsize'], darr['nmsgs'] / 1e6, label='PPS [Mmsg/s]', marker='x', color=color)
+    ax1.tick_params(axis='y', labelcolor=color)
+
+    # GBPS axis
+    color = 'tab:blue'
+    ax2 = ax1.twinx()  # instantiate a second axes that shares the same x-axis
+    ax2.set_ylabel('Throughput [Gb/s]', color=color)
+    ax2.semilogx(darr['msgsize'], 1e-3*darr['nbytes']/darr['time_us'], label='Throughput [Gb/s]', marker='o')
+    # if is_tcp:
+    #     ax2.set_yticks(np.arange(0, TCP_LINK_GPBS + 1, TCP_LINK_GPBS/10)) 
+    ax2.tick_params(axis='y', labelcolor=color)
+    ax2.grid(True)
+    
+    plt.title(title)
+    fig.tight_layout()  # otherwise the right y-label is slightly clippe
+    plt.savefig(pltfile)
+    
+
 
 @cli.command('plot-lat')
 @click.argument('echofile', type=click.File('rb'), default='-')
@@ -305,10 +427,8 @@ def kmgt(number):
 @click.argument('pltfile', type=click.Path(), default='-')
 def plot_lat(echofile, yodelfile, pltfile):
     '''
-    Generate latency result plot similar to libzmq's
-    "generate_graphs.py"
+    Generate latency result plot
     '''
-
     edat = json.loads(echofile.read())
     ydat = json.loads(yodelfile.read())
     eres = edat['results']
@@ -316,7 +436,6 @@ def plot_lat(echofile, yodelfile, pltfile):
     epln = edat['plan']
     ypln = ydat['plan']
 
-    nmsgs = kmgt(ypln[0]['nmsgs'])
     si = ydat['sysinfo']
     ni = get_net_info(si['nics'], attachment(ypln)[1])
     print (ni)
@@ -343,7 +462,7 @@ def plot_lat(echofile, yodelfile, pltfile):
     plt.semilogx(earr['msgsize'], earr['time_us']/(2.0*earr['nmsgs']),
                  label='echo', marker='.', color='tab:green')
     
-    plt.xlabel('Message size [B] (%s msgs per point)' % (nmsgs,))
+    plt.xlabel('Message size [B]')
     plt.ylabel('One-way latency [us]')
     plt.grid(True)
     plt.legend()

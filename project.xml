@@ -26,7 +26,17 @@
     serviced.  
   </actor>
 
-  <class name="zperf" />
+  <class name="zperf">
+    Synchronous API to perf actor.
+  </class>
+
+  <class name = "zperf_msg" />
+  <class name = "zperf_server" />
+  <class name = "zperf_client" />
+
+  <model name = "zperf_msg" />
+  <model name = "zperf_server" />
+  <model name = "zperf_client" />
 
   <main name="zperfcli" />
   <!-- todo: zperfd and zperfc -->

@@ -350,6 +350,9 @@ perf_send (perf_t *self, int nmsgs, size_t msgsize)
 
     void* watch = zmq_stopwatch_start();
     uint64_t cpu_start = s_cpu_now();
+    if (self->verbose) {
+        zsys_info("send: sending %d of size %ld", nmsgs, msgsize);
+    }
     for (int count = 0; count<nmsgs; ++count) {
         int rc = zsock_send(self->sock, "if", count, frame);
         assert(rc == 0);
@@ -379,6 +382,7 @@ perf_recv (perf_t *self, int nmsgs)
     uint64_t cpu_start = 0;
 
     int rc=0, noos=0;
+    size_t last_size = 0;
     for (int count = 0; count < nmsgs; ++count) {
         int got_count = 0;
         zframe_t* frame = NULL;
@@ -395,6 +399,11 @@ perf_recv (perf_t *self, int nmsgs)
         size_t siz = zframe_size(frame);
         totdata += siz;
         zframe_destroy(&frame);        
+
+        if (last_size && last_size != siz) {
+            zsys_debug("recv: got size change %ld -> %ld", last_size, siz);
+        }
+        last_size = siz;
     }
 
     const int64_t elapsed = zmq_stopwatch_stop(watch);

@@ -131,3 +131,4 @@ nbproject/
 venv
 *.egg-info
 dist
+*.json
