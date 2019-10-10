@@ -807,7 +807,7 @@ zperf_msg_recv (zperf_msg_t *self, zsock_t *input)
         case ZPERF_MSG_RESULT:
             GET_NUMBER4 (self->nmsgs);
             GET_NUMBER8 (self->msgsize);
-            GET_NUMBER8 (self->timeout);
+            GET_NUMBER4 (self->timeout);
             GET_NUMBER8 (self->time_us);
             GET_NUMBER8 (self->cpu_us);
             GET_NUMBER4 (self->noos);
@@ -889,7 +889,7 @@ zperf_msg_send (zperf_msg_t *self, zsock_t *output)
         case ZPERF_MSG_RESULT:
             frame_size += 4;            //  nmsgs
             frame_size += 8;            //  msgsize
-            frame_size += 8;            //  timeout
+            frame_size += 4;            //  timeout
             frame_size += 8;            //  time_us
             frame_size += 8;            //  cpu_us
             frame_size += 4;            //  noos
@@ -940,7 +940,7 @@ zperf_msg_send (zperf_msg_t *self, zsock_t *output)
         case ZPERF_MSG_RESULT:
             PUT_NUMBER4 (self->nmsgs);
             PUT_NUMBER8 (self->msgsize);
-            PUT_NUMBER8 (self->timeout);
+            PUT_NUMBER4 (self->timeout);
             PUT_NUMBER8 (self->time_us);
             PUT_NUMBER8 (self->cpu_us);
             PUT_NUMBER4 (self->noos);

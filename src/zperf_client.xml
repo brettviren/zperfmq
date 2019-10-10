@@ -6,6 +6,8 @@
     protocol_class = "zperf_msg"
     package_dir = "../include"
     project_header = "zperfmq_classes.hpp"
+    header_ext = "hpp"
+    source_ext = "cpp"
     >
   This is a Zperf client.  It can be used to request a perf
   measurement from the Zperf server.
@@ -114,7 +116,7 @@
     <accept reply = "FAILURE" />
   </method>
 
-  <method name = "set measure" return = "status">
+  <method name = "set measurement" return = "status">
     <field name = "nmsgs" type = "number" size = "4" />
     <field name = "msgsize" type = "number" size = "8" />
     <field name = "timeout" type = "number" size = "4" />
@@ -125,7 +127,7 @@
   <reply name = "RESULT">
     <field name = "nmsgs" type = "number" size = "4">Number of messages</field>
     <field name = "msgsize" type = "number" size = "8">Message size in bytes</field>
-    <field name = "timeout" type = "number" size = "8">Timeout in millisec</field>
+    <field name = "timeout" type = "number" size = "4">Timeout in millisec</field>
     <field name = "time_us" type = "number" size = "8">Time elapsed in microseconds</field>
     <field name = "cpu_us" type = "number" size = "8">CPU time used (user+system) in microseconds</field>
     <field name = "noos" type = "number" size = "4">Number of out-of-order messages</field>

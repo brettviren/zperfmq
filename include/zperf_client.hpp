@@ -67,7 +67,7 @@ int
 //  No explanation
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_set_measure (zperf_client_t *self, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
+    zperf_client_set_measurement (zperf_client_t *self, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
 
 //  Return last received nmsgs
 uint32_t
@@ -78,7 +78,7 @@ uint64_t
     zperf_client_msgsize (zperf_client_t *self);
 
 //  Return last received timeout
-uint64_t
+uint32_t
     zperf_client_timeout (zperf_client_t *self);
 
 //  Return last received time_us

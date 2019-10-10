@@ -125,7 +125,7 @@ zperf_server_test (bool verbose)
         printf ("\n");
 
     //  @selftest
-    zactor_t *server = zactor_new (zperf_server, "server");
+    zactor_t *server = zactor_new (zperf_server, (char*)"server");
     if (verbose)
         zstr_send (server, "VERBOSE");
     zstr_sendx (server, "BIND", "ipc://@/zperf_server", NULL);

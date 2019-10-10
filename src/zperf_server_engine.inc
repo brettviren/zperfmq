@@ -44,7 +44,7 @@ typedef enum {
 } event_t;
 
 //  Names for state machine logging and error reporting
-static char *
+static const char *
 s_state_name [] = {
     "(NONE)",
     "start",
@@ -52,7 +52,7 @@ s_state_name [] = {
     "defaults"
 };
 
-static char *
+static const char *
 s_event_name [] = {
     "(NONE)",
     "terminate",
@@ -1058,7 +1058,7 @@ zperf_server (zsock_t *pipe, void *args)
     assert (self);
     zsock_signal (pipe, 0);
     //  Actor argument may be a string used for logging
-    self->log_prefix = args? (char *) args: "";
+    self->log_prefix = args? (char *) args: (char*)"";
 
     //  Set-up server monitor to watch for config file changes
     engine_set_monitor ((server_t *) self, 1000, s_watch_server_config);

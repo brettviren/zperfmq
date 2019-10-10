@@ -47,7 +47,7 @@
     RESULT - The results of a measurement.
         nmsgs               number 4    Number of messages
         msgsize             number 8    Message size in bytes
-        timeout             number 8    Timeout in millisec
+        timeout             number 4    Timeout in millisec
         time_us             number 8    Time elapsed in microseconds
         cpu_us              number 8    CPU time used (user+system) in microseconds
         noos                number 4    Number of out-of-order messages

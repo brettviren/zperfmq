@@ -6,6 +6,8 @@
     protocol_class = "zperf_msg"
     package_dir = "../include"
     project_header = "zperfmq_classes.hpp"
+    header_ext = "hpp"
+    source_ext = "cpp"
     >
   This is a server implementing the Zperf Protocol.
 

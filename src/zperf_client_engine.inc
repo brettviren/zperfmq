@@ -46,7 +46,7 @@ typedef enum {
 } event_t;
 
 //  Names for state machine logging and error reporting
-static char *
+static const char *
 s_state_name [] = {
     "(NONE)",
     "start",
@@ -58,7 +58,7 @@ s_state_name [] = {
     "defaults"
 };
 
-static char *
+static const char *
 s_event_name [] = {
     "(NONE)",
     "connect",
@@ -1037,9 +1037,9 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         s_client_execute (self, set_socket_event);
     }
     else
-    if (streq (method, "SET MEASURE")) {
+    if (streq (method, "SET MEASUREMENT")) {
         zsock_recv (self->cmdpipe, "484", &self->args.nmsgs, &self->args.msgsize, &self->args.timeout);
-        s_client_execute (self, set_measure_event);
+        s_client_execute (self, set_measurement_event);
     }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
@@ -1156,7 +1156,7 @@ struct _zperf_client_t {
     bool connected;             //  Client currently connected or not
     uint32_t nmsgs;             //  Returned by actor reply
     uint64_t msgsize;           //  Returned by actor reply
-    uint64_t timeout;           //  Returned by actor reply
+    uint32_t timeout;           //  Returned by actor reply
     uint64_t time_us;           //  Returned by actor reply
     uint64_t cpu_us;            //  Returned by actor reply
     uint32_t noos;              //  Returned by actor reply
@@ -1275,7 +1275,7 @@ s_accept_reply (zperf_client_t *self, ...)
         while (filter) {
             if (streq (reply, filter)) {
                 if (streq (reply, "RESULT")) {
-                    zsock_recv (self->actor, "4888848", &self->nmsgs, &self->msgsize, &self->timeout, &self->time_us, &self->cpu_us, &self->noos, &self->nbytes);
+                    zsock_recv (self->actor, "4848848", &self->nmsgs, &self->msgsize, &self->timeout, &self->time_us, &self->cpu_us, &self->noos, &self->nbytes);
                 }
                 else
                 if (streq (reply, "SUCCESS")) {
@@ -1324,11 +1324,11 @@ zperf_client_set_socket (zperf_client_t *self, const char *action, const char *e
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_set_measure (zperf_client_t *self, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
+zperf_client_set_measurement (zperf_client_t *self, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
 {
     assert (self);
 
-    zsock_send (self->actor, "s484", "SET MEASURE", nmsgs, msgsize, timeout);
+    zsock_send (self->actor, "s484", "SET MEASUREMENT", nmsgs, msgsize, timeout);
     if (s_accept_reply (self, "SUCCESS", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -1360,7 +1360,7 @@ zperf_client_msgsize (zperf_client_t *self)
 //  ---------------------------------------------------------------------------
 //  Return last received timeout
 
-uint64_t
+uint32_t
 zperf_client_timeout (zperf_client_t *self)
 {
     assert (self);
