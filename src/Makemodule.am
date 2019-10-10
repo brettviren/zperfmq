@@ -18,6 +18,9 @@ src_libzperfmq_la_SOURCES = \
 if ENABLE_DRAFTS
 src_libzperfmq_la_SOURCES += \
     src/zperf.cpp \
+    src/zperf_msg.cpp \
+    src/zperf_server.cpp \
+    src/zperf_client.cpp \
     src/perf.cpp
 
 endif
@@ -75,6 +78,12 @@ src: \
 		src/zperfmq_selftest \
 		src/libzperfmq.la
 
+# Produce generated code from models in the src directory
+code:
+	cd $(srcdir)/src; gsl -topdir:.. -zproject:1 -q zperf_msg.xml
+	cd $(srcdir)/src; gsl -topdir:.. -zproject:1 -q zperf_server.xml
+	cd $(srcdir)/src; gsl -topdir:.. -zproject:1 -q zperf_client.xml
+	cd $(srcdir); gsl -target:- project.xml
 
 # Directories with test fixtures optionally provided by the project,
 # and with volatile RW data possibly created by a selftest program.

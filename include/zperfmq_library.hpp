@@ -66,6 +66,12 @@
 #ifdef ZPERFMQ_BUILD_DRAFT_API
 typedef struct _zperf_t zperf_t;
 #define ZPERF_T_DEFINED
+typedef struct _zperf_msg_t zperf_msg_t;
+#define ZPERF_MSG_T_DEFINED
+typedef struct _zperf_server_t zperf_server_t;
+#define ZPERF_SERVER_T_DEFINED
+typedef struct _zperf_client_t zperf_client_t;
+#define ZPERF_CLIENT_T_DEFINED
 typedef struct _perf_t perf_t;
 #define PERF_T_DEFINED
 #endif // ZPERFMQ_BUILD_DRAFT_API
@@ -74,6 +80,9 @@ typedef struct _perf_t perf_t;
 //  Public classes, each with its own header file
 #ifdef ZPERFMQ_BUILD_DRAFT_API
 #include "zperf.hpp"
+#include "zperf_msg.hpp"
+#include "zperf_server.hpp"
+#include "zperf_client.hpp"
 #include "perf.hpp"
 #endif // ZPERFMQ_BUILD_DRAFT_API
 

@@ -1,0 +1,103 @@
+<class
+    name = "zperf_client"
+    title = "Zperf Client"
+    script = "zproto_client_c" 
+    protocol_class = "zperf_msg"
+    package_dir = "../include"
+    project_header = "zperf_classes.hpp"
+    >
+  This is a Zperf client.  It can be used to request a perf
+  measurement from the Zperf server.
+
+  <state name = "start">
+    <event name = "connect" next = "expect hello ok">
+      <action name = "connect to server endpoint" />
+      <action name = "set client identity" />
+      <action name = "use connect timeout" />
+      <action name = "send" message = "HELLO" />
+    </event>
+    <event name = "bad endpoint">
+      <action name = "signal bad endpoint" />
+      <action name = "terminate" />
+    </event>
+    <event name = "destructor">
+      <action name = "signal success" />
+    </event>
+  </state>
+
+  <state name = "expect hello ok" inherit = "defaults">
+    <event name = "HELLO OK" next = "connected">
+      <action name = "signal connected" />
+    </event>
+    <event name = "expired" next = "start">
+    </event>
+  </state>
+
+  <state name = "connected" inherit = "defaults">
+    <event name = "set socket" next = "expect socket ok">
+      <action name = "set socket request" />
+      <action name = "send" message = "SOCKET" />
+    </event>
+    <event name = "set measurement" next = "expect result">
+      <action name = "set measurement request" />
+      <action name = "send" message = "MEASURE" />
+    </event>
+  </state>
+
+  <state name = "expect socket ok" inherit = "defaults">
+    <event name = "SOCKET OK" next = "connected">
+      <action name = "set socket request" />
+      <action name = "signal socket request" />
+    </event>
+    <event name = "expired" next = "start">
+    </event>
+  </state>
+
+  
+  <state name = "expect result" inherit = "defaults">
+    <event name = "RESULT" next = "connected">
+      <action name = "set results" />
+      <action name = "signal results" />
+    </event>
+    <event name = "expired" next = "start">
+    </event>
+  </state>
+
+  <method name = "set socket" return = "status">
+    Request that a measurement socket be opened on the given endpoint
+    where action is bind or connect.
+    <field name = "action" type = "string" />
+    <field name = "endpoint" type = "string" />
+    <accept reply = "SUCCESS" />
+    <accept reply = "FAILURE" />
+  </method>
+
+  <method name = "set measure" return = "status">
+    <field name = "nmsgs" type = "number" size = "4" />
+    <field name = "msgsize" type = "number" size = "8" />
+    <field name = "timeout" type = "number" size = "4" />
+    <accept reply = "SUCCESS" />
+    <accept reply = "FAILURE" />
+  </method>
+
+  <reply name = "RESULT">
+    <field name = "nmsgs" type = "number" size = "4">Number of messages</field>
+    <field name = "msgsize" type = "number" size = "8">Message size in bytes</field>
+    <field name = "timeout" type = "number" size = "8">Timeout in millisec</field>
+    <field name = "time_us" type = "number" size = "8">Time elapsed in microseconds</field>
+    <field name = "cpu_us" type = "number" size = "8">CPU time used (user+system) in microseconds</field>
+    <field name = "noos" type = "number" size = "4">Number of out-of-order messages</field>
+    <field name = "nbytes" type = "number" size = "8">Number of bytes processed</field>
+  </reply>
+
+  <reply name = "SUCCESS">
+    <field name = "status" type = "integer" />
+  </reply>
+
+  <reply name = "FAILURE">
+    <field name = "status" type = "integer" />
+    <field name = "reason" type = "string" />
+  </reply>
+
+</class>
+  

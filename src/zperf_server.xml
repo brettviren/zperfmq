@@ -1,0 +1,64 @@
+<class
+    name = "zperf_server"
+    title = "Zperf Server (in C)"
+    script = "zproto_server_c"
+    protocol_class = "zperf_msg"
+    package_dir = "../include"
+    project_header = "zperf_classes.hpp"
+    >
+  This is a server implementing the Zperf Protocol.
+
+  It runs a perf actor on behalf of a client.
+
+  <include filename = "../license.xml" />
+
+  <state name = "start" inherit = "defaults">
+    <event name = "HELLO" next = "connected">
+      <action name = "create perf" />
+      <action name = "send" message = "HELLO OK" />
+    </event>
+    <event name = "*">
+      <action name = "signal command invalid" />
+      <action name = "send" message = "ERROR" />
+    </event>
+  </state>
+
+  
+  <state name = "connected" inherit = "defaults">
+    <event name = "SOCKET">
+      <action name = "connect or bind" />
+      <action name = "send" message = "SOCKET OK" />
+    </event>
+    <event name = "MEASURE">
+      <action name = "take measurement" />
+      <action name = "send" message = "RESULT" />
+    </event>
+
+    <event name = "PING">
+      <action name = "send" message = "PING OK" />
+    </event>
+    <event name = "GOODBYE">
+      <action name = "send" message = "GOODBYE OK" />
+      <action name = "terminate" />
+    </event>
+  </state>
+
+
+  <state name = "defaults">
+    <!-- This built-in event hits on a client timeout -->
+    <event name = "expired">
+      <action name = "terminate" />
+    </event>
+    <!-- Client tried to do something we don't allow yet -->
+    <event name = "exception">
+      <action name = "send" message = "ERROR" />
+      <action name = "terminate" />
+    </event>
+    <!-- All other protocol messages are invalid -->
+    <event name = "*">
+      <action name = "signal command invalid" />
+      <action name = "send" message = "ERROR" />
+      <action name = "terminate" />
+    </event>
+  </state>
+</class>
