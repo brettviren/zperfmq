@@ -637,11 +637,11 @@ s_client_execute (s_client_t *self, event_t event)
                         set_perf_by_socket (&self->client);
                     }
                     if (!self->exception) {
-                        //  send RESULTS
+                        //  send RESULT
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send RESULTS",
+                            zsys_debug ("%s:         $ send RESULT",
                                 self->log_prefix);
-                        zperf_msg_set_id (self->server->message, ZPERF_MSG_RESULTS);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_RESULT);
                         zperf_msg_set_routing_id (self->server->message, self->routing_id);
                         zperf_msg_send (self->server->message, self->server->router);
                     }

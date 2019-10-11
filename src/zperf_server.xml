@@ -49,7 +49,7 @@
     <!-- event emitted by perf pipe handler, which also readies message -->
     <event name = "measure return" >
       <action name = "set perf by socket" />
-      <action name = "send" message = "RESULTS" />
+      <action name = "send" message = "RESULT" />
     </event>
 
     <event name = "PING">

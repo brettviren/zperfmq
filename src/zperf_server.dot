@@ -37,7 +37,7 @@ digraph "zperf_server" {
  "connected measure" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">measure</font></td></tr><tr><td align="left" port="r3">set perf by ident</td></tr><tr><td align="left" port="r3">start measure</td></tr></table>>];
  "connected" -> "connected measure";
  "connected measure" -> "connected";
- "connected measure return" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">measure return</font></td></tr><tr><td align="left" port="r3">set perf by socket</td></tr><tr><td align="left" port="r3">send (results)</td></tr></table>>];
+ "connected measure return" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">measure return</font></td></tr><tr><td align="left" port="r3">set perf by socket</td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
  "connected" -> "connected measure return";
  "connected measure return" -> "connected";
  "connected ping" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ping</font></td></tr><tr><td align="left" port="r3">send (ping ok)</td></tr></table>>];
