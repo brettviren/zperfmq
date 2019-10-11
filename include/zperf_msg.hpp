@@ -23,28 +23,37 @@
 
     HELLO - Create a perf on the server associated with the client.
         nickname            string      Client nickname
-        mtype               string      Measurement type
-        stype               string      Socket type
 
     HELLO_OK - Create a perf on the server associated with the client.
         nickname            string      Client nickname
+
+    CREATE -
         mtype               string      Measurement type
         stype               string      Socket type
 
+    CREATE_OK -
+        mtype               string      Measurement type
+        stype               string      Socket type
+        ident               string      ID for the perf instance
+
     SOCKET - Bind or connect the measurement socket to the address.
+        ident               string      ID for the perf instance
         action              string      Bind or Connect
         endpoint            string      Address
 
     SOCKET_OK - Bind or connect the measurement socket to the address.
+        ident               string      ID for the perf instance
         action              string      Bind or Connect
         endpoint            string      Address
 
     MEASURE - Initiate a measurement.
+        ident               string      ID for the perf instance
         nmsgs               number 4    Number of messages
         msgsize             number 8    Message size in bytes
         timeout             number 4    Timeout in msec
 
     RESULT - The results of a measurement.
+        ident               string      ID for the perf instance
         nmsgs               number 4    Number of messages
         msgsize             number 8    Message size in bytes
         timeout             number 4    Timeout in millisec
@@ -84,15 +93,17 @@ or network recovery).
 
 #define ZPERF_MSG_HELLO                     1
 #define ZPERF_MSG_HELLO_OK                  2
-#define ZPERF_MSG_SOCKET                    3
-#define ZPERF_MSG_SOCKET_OK                 4
-#define ZPERF_MSG_MEASURE                   5
-#define ZPERF_MSG_RESULT                    6
-#define ZPERF_MSG_PING                      7
-#define ZPERF_MSG_PING_OK                   8
-#define ZPERF_MSG_GOODBYE                   9
-#define ZPERF_MSG_GOODBYE_OK                10
-#define ZPERF_MSG_ERROR                     11
+#define ZPERF_MSG_CREATE                    3
+#define ZPERF_MSG_CREATE_OK                 4
+#define ZPERF_MSG_SOCKET                    5
+#define ZPERF_MSG_SOCKET_OK                 6
+#define ZPERF_MSG_MEASURE                   7
+#define ZPERF_MSG_RESULT                    8
+#define ZPERF_MSG_PING                      9
+#define ZPERF_MSG_PING_OK                   10
+#define ZPERF_MSG_GOODBYE                   11
+#define ZPERF_MSG_GOODBYE_OK                12
+#define ZPERF_MSG_ERROR                     13
 
 #include <czmq.h>
 
@@ -174,6 +185,12 @@ const char *
     zperf_msg_stype (zperf_msg_t *self);
 void
     zperf_msg_set_stype (zperf_msg_t *self, const char *value);
+
+//  Get/set the ident field
+const char *
+    zperf_msg_ident (zperf_msg_t *self);
+void
+    zperf_msg_set_ident (zperf_msg_t *self, const char *value);
 
 //  Get/set the action field
 const char *

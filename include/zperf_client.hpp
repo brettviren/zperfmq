@@ -58,16 +58,31 @@ zsock_t *
 bool
     zperf_client_connected (zperf_client_t *self);
 
-//  Request that a measurement socket be opened on the given endpoint where action
-//  is bind or connect.
+//  Request a perf to be created. Returned perf ident is needed for any subsequent
+//  set_socket or set_measurement method calls .
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_set_socket (zperf_client_t *self, const char *action, const char *endpoint);
+    zperf_client_create_perf (zperf_client_t *self, const char *mtype, const char *stype);
 
-//  No explanation
+//  Request that a measurement socket be opened on the given endpoint where action
+//  is bind or connect. The ident comes from a create_perf() call.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_set_measurement (zperf_client_t *self, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
+    zperf_client_set_socket (zperf_client_t *self, const char *ident, const char *action, const char *endpoint);
+
+//  Set a measurement to be performed. The ident comes from a create_perf() call.
+//  Calling this before successfully setting a socket is pointless.
+//  Returns >= 0 if successful, -1 if interrupted.
+int
+    zperf_client_set_measurement (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
+
+//  Return last received ident
+const char *
+    zperf_client_ident (zperf_client_t *self);
+
+//  Return last received ident and transfer ownership to caller
+const char *
+    zperf_client_get_ident (zperf_client_t *self);
 
 //  Return last received nmsgs
 uint32_t

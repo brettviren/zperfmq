@@ -22,10 +22,11 @@ typedef enum {
     start_state = 1,
     expect_hello_ok_state = 2,
     connected_state = 3,
-    expect_socket_ok_state = 4,
-    expect_result_state = 5,
-    expect_goodbye_ok_state = 6,
-    defaults_state = 7
+    expect_create_ok_state = 4,
+    expect_socket_ok_state = 5,
+    expect_result_state = 6,
+    expect_goodbye_ok_state = 7,
+    defaults_state = 8
 } state_t;
 
 typedef enum {
@@ -34,15 +35,17 @@ typedef enum {
     bad_endpoint_event = 2,
     destructor_event = 3,
     hello_ok_event = 4,
-    expired_event = 5,
+    create_perf_event = 5,
     set_socket_event = 6,
     set_measurement_event = 7,
-    socket_ok_event = 8,
-    result_event = 9,
-    goodbye_ok_event = 10,
-    ping_ok_event = 11,
-    error_event = 12,
-    exception_event = 13
+    create_ok_event = 8,
+    socket_ok_event = 9,
+    result_event = 10,
+    goodbye_ok_event = 11,
+    expired_event = 12,
+    ping_ok_event = 13,
+    error_event = 14,
+    exception_event = 15
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -52,6 +55,7 @@ s_state_name [] = {
     "start",
     "expect hello ok",
     "connected",
+    "expect create ok",
     "expect socket ok",
     "expect result",
     "expect goodbye ok",
@@ -65,12 +69,14 @@ s_event_name [] = {
     "bad_endpoint",
     "destructor",
     "HELLO_OK",
-    "expired",
+    "create_perf",
     "set_socket",
     "set_measurement",
+    "CREATE_OK",
     "SOCKET_OK",
     "RESULT",
     "GOODBYE_OK",
+    "expired",
     "PING_OK",
     "ERROR",
     "exception"
@@ -84,6 +90,9 @@ s_event_name [] = {
 
 //  These are the different method arguments we manage automatically
 struct _client_args_t {
+    char *mtype;
+    char *stype;
+    char *ident;
     char *action;
     char *endpoint;
     uint32_t nmsgs;
@@ -133,7 +142,7 @@ static void
 static void
     connect_to_server_endpoint (client_t *self);
 static void
-    set_client_identity (client_t *self);
+    set_nickname (client_t *self);
 static void
     use_connect_timeout (client_t *self);
 static void
@@ -143,9 +152,17 @@ static void
 static void
     signal_connected (client_t *self);
 static void
+    client_is_connected (client_t *self);
+static void
+    set_perf_attributes (client_t *self);
+static void
     set_socket_request (client_t *self);
 static void
     set_measurement_request (client_t *self);
+static void
+    remember_perf (client_t *self);
+static void
+    signal_perf_creation (client_t *self);
 static void
     signal_socket_request (client_t *self);
 static void
@@ -154,8 +171,6 @@ static void
     signal_results (client_t *self);
 static void
     check_if_connection_is_dead (client_t *self);
-static void
-    client_is_connected (client_t *self);
 static void
     check_status_code (client_t *self);
 static void
@@ -205,6 +220,9 @@ s_client_destroy (s_client_t **self_p)
     assert (self_p);
     if (*self_p) {
         s_client_t *self = *self_p;
+        zstr_free (&self->args.mtype);
+        zstr_free (&self->args.stype);
+        zstr_free (&self->args.ident);
         zstr_free (&self->args.action);
         zstr_free (&self->args.endpoint);
         client_terminate (&self->client);
@@ -360,6 +378,9 @@ s_protocol_event (s_client_t *self, zperf_msg_t *message)
         case ZPERF_MSG_HELLO_OK:
             return hello_ok_event;
             break;
+        case ZPERF_MSG_CREATE_OK:
+            return create_ok_event;
+            break;
         case ZPERF_MSG_SOCKET_OK:
             return socket_ok_event;
             break;
@@ -418,10 +439,10 @@ s_client_execute (s_client_t *self, event_t event)
                         connect_to_server_endpoint (&self->client);
                     }
                     if (!self->exception) {
-                        //  set client identity
+                        //  set nickname
                         if (self->verbose)
-                            zsys_debug ("%s:         $ set client identity", self->log_prefix);
-                        set_client_identity (&self->client);
+                            zsys_debug ("%s:         $ set nickname", self->log_prefix);
+                        set_nickname (&self->client);
                     }
                     if (!self->exception) {
                         //  use connect timeout
@@ -482,13 +503,14 @@ s_client_execute (s_client_t *self, event_t event)
                             zsys_debug ("%s:         $ signal connected", self->log_prefix);
                         signal_connected (&self->client);
                     }
+                    if (!self->exception) {
+                        //  client is connected
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
                     if (!self->exception)
                         self->state = connected_state;
-                }
-                else
-                if (self->event == expired_event) {
-                    if (!self->exception)
-                        self->state = start_state;
                 }
                 else
                 if (self->event == destructor_event) {
@@ -502,6 +524,23 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_goodbye_ok_state;
+                }
+                else
+                if (self->event == expired_event) {
+                    if (!self->exception) {
+                        //  check if connection is dead
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ check if connection is dead", self->log_prefix);
+                        check_if_connection_is_dead (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send PING
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send PING",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_PING);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
                 }
                 else
                 if (self->event == ping_ok_event) {
@@ -548,6 +587,25 @@ s_client_execute (s_client_t *self, event_t event)
                 break;
 
             case connected_state:
+                if (self->event == create_perf_event) {
+                    if (!self->exception) {
+                        //  set perf attributes
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ set perf attributes", self->log_prefix);
+                        set_perf_attributes (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send CREATE
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send CREATE",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_CREATE);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_create_ok_state;
+                }
+                else
                 if (self->event == set_socket_event) {
                     if (!self->exception) {
                         //  set socket request
@@ -659,6 +717,97 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 break;
 
+            case expect_create_ok_state:
+                if (self->event == create_ok_event) {
+                    if (!self->exception) {
+                        //  remember perf
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ remember perf", self->log_prefix);
+                        remember_perf (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  signal perf creation
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal perf creation", self->log_prefix);
+                        signal_perf_creation (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = connected_state;
+                }
+                else
+                if (self->event == destructor_event) {
+                    if (!self->exception) {
+                        //  send GOODBYE
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send GOODBYE",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_GOODBYE);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
+                    if (!self->exception)
+                        self->state = expect_goodbye_ok_state;
+                }
+                else
+                if (self->event == expired_event) {
+                    if (!self->exception) {
+                        //  check if connection is dead
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ check if connection is dead", self->log_prefix);
+                        check_if_connection_is_dead (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send PING
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send PING",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_PING);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->fsm_stopped = true;
+                    }
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                    if (!self->exception) {
+                        //  signal internal error
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal internal error", self->log_prefix);
+                        signal_internal_error (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->fsm_stopped = true;
+                    }
+                }
+                break;
+
             case expect_socket_ok_state:
                 if (self->event == socket_ok_event) {
                     if (!self->exception) {
@@ -677,11 +826,6 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = connected_state;
                 }
                 else
-                if (self->event == expired_event) {
-                    if (!self->exception)
-                        self->state = start_state;
-                }
-                else
                 if (self->event == destructor_event) {
                     if (!self->exception) {
                         //  send GOODBYE
@@ -693,6 +837,23 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_goodbye_ok_state;
+                }
+                else
+                if (self->event == expired_event) {
+                    if (!self->exception) {
+                        //  check if connection is dead
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ check if connection is dead", self->log_prefix);
+                        check_if_connection_is_dead (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send PING
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send PING",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_PING);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
                 }
                 else
                 if (self->event == ping_ok_event) {
@@ -756,11 +917,6 @@ s_client_execute (s_client_t *self, event_t event)
                         self->state = connected_state;
                 }
                 else
-                if (self->event == expired_event) {
-                    if (!self->exception)
-                        self->state = start_state;
-                }
-                else
                 if (self->event == destructor_event) {
                     if (!self->exception) {
                         //  send GOODBYE
@@ -772,6 +928,23 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = expect_goodbye_ok_state;
+                }
+                else
+                if (self->event == expired_event) {
+                    if (!self->exception) {
+                        //  check if connection is dead
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ check if connection is dead", self->log_prefix);
+                        check_if_connection_is_dead (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send PING
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send PING",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_PING);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
                 }
                 else
                 if (self->event == ping_ok_event) {
@@ -1030,15 +1203,24 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     if (streq (method, "SET VERBOSE"))
         zsock_recv (self->cmdpipe, "i", &self->verbose);
     else
+    if (streq (method, "CREATE PERF")) {
+        zstr_free (&self->args.mtype);
+        zstr_free (&self->args.stype);
+        zsock_recv (self->cmdpipe, "ss", &self->args.mtype, &self->args.stype);
+        s_client_execute (self, create_perf_event);
+    }
+    else
     if (streq (method, "SET SOCKET")) {
+        zstr_free (&self->args.ident);
         zstr_free (&self->args.action);
         zstr_free (&self->args.endpoint);
-        zsock_recv (self->cmdpipe, "ss", &self->args.action, &self->args.endpoint);
+        zsock_recv (self->cmdpipe, "sss", &self->args.ident, &self->args.action, &self->args.endpoint);
         s_client_execute (self, set_socket_event);
     }
     else
     if (streq (method, "SET MEASUREMENT")) {
-        zsock_recv (self->cmdpipe, "484", &self->args.nmsgs, &self->args.msgsize, &self->args.timeout);
+        zstr_free (&self->args.ident);
+        zsock_recv (self->cmdpipe, "s484", &self->args.ident, &self->args.nmsgs, &self->args.msgsize, &self->args.timeout);
         s_client_execute (self, set_measurement_event);
     }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
@@ -1154,6 +1336,7 @@ struct _zperf_client_t {
     zactor_t *actor;            //  Client actor
     zsock_t *msgpipe;           //  Pipe for async message flow
     bool connected;             //  Client currently connected or not
+    char *ident;                //  Returned by actor reply
     uint32_t nmsgs;             //  Returned by actor reply
     uint64_t msgsize;           //  Returned by actor reply
     uint32_t timeout;           //  Returned by actor reply
@@ -1204,6 +1387,7 @@ zperf_client_destroy (zperf_client_t **self_p)
         }
         zactor_destroy (&self->actor);
         zsock_destroy (&self->msgpipe);
+        zstr_free (&self->ident);
         zstr_free (&self->reason);
         free (self);
         *self_p = NULL;
@@ -1275,7 +1459,8 @@ s_accept_reply (zperf_client_t *self, ...)
         while (filter) {
             if (streq (reply, filter)) {
                 if (streq (reply, "RESULT")) {
-                    zsock_recv (self->actor, "4848848", &self->nmsgs, &self->msgsize, &self->timeout, &self->time_us, &self->cpu_us, &self->noos, &self->nbytes);
+                    zstr_free (&self->ident);
+                    zsock_recv (self->actor, "s4848848", &self->ident, &self->nmsgs, &self->msgsize, &self->timeout, &self->time_us, &self->cpu_us, &self->noos, &self->nbytes);
                 }
                 else
                 if (streq (reply, "SUCCESS")) {
@@ -1303,16 +1488,16 @@ s_accept_reply (zperf_client_t *self, ...)
 
 
 //  ---------------------------------------------------------------------------
-//  Request that a measurement socket be opened on the given endpoint where action
-//  is bind or connect.
+//  Request a perf to be created. Returned perf ident is needed for any subsequent
+//  set_socket or set_measurement method calls .
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_set_socket (zperf_client_t *self, const char *action, const char *endpoint)
+zperf_client_create_perf (zperf_client_t *self, const char *mtype, const char *stype)
 {
     assert (self);
 
-    zsock_send (self->actor, "sss", "SET SOCKET", action, endpoint);
+    zsock_send (self->actor, "sss", "CREATE PERF", mtype, stype);
     if (s_accept_reply (self, "SUCCESS", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -1320,18 +1505,60 @@ zperf_client_set_socket (zperf_client_t *self, const char *action, const char *e
 
 
 //  ---------------------------------------------------------------------------
-//  No explanation
+//  Request that a measurement socket be opened on the given endpoint where action
+//  is bind or connect. The ident comes from a create_perf() call.
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_set_measurement (zperf_client_t *self, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
+zperf_client_set_socket (zperf_client_t *self, const char *ident, const char *action, const char *endpoint)
 {
     assert (self);
 
-    zsock_send (self->actor, "s484", "SET MEASUREMENT", nmsgs, msgsize, timeout);
+    zsock_send (self->actor, "ssss", "SET SOCKET", ident, action, endpoint);
     if (s_accept_reply (self, "SUCCESS", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Set a measurement to be performed. The ident comes from a create_perf() call.
+//  Calling this before successfully setting a socket is pointless.
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int
+zperf_client_set_measurement (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
+{
+    assert (self);
+
+    zsock_send (self->actor, "ss484", "SET MEASUREMENT", ident, nmsgs, msgsize, timeout);
+    if (s_accept_reply (self, "SUCCESS", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received ident
+
+const char *
+zperf_client_ident (zperf_client_t *self)
+{
+    assert (self);
+    return self->ident;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received ident and transfer ownership to caller
+
+const char *
+zperf_client_get_ident (zperf_client_t *self)
+{
+    assert (self);
+    char * ident = self->ident;
+    self->ident = NULL;
+    return ident;
 }
 
 

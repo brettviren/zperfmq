@@ -10,8 +10,9 @@
   <include filename = "../license.xml" />
 
   <grammar>
-    hydra = hello socket *( measure | heartbeat ) [ goodbye ]
+    hydra = hello *( socket | create | measure | heartbeat ) [ goodbye ]
     hello   = C:HELLO   ( S:HELLO-OK   / S:INVALID / S:FAILED )
+    create  = C:CREATE  ( S:CREATE-OK  / S:INVALID / S:FAILED )
     socket  = C:SOCKET  ( S:SOCKET-OK  / S:INVALID / S:FAILED )
     measure = C:MEASURE ( S:RESULT     / S:INVALID / S:FAILED )
     heartbeat = C:PING S:PING-OK
@@ -21,31 +22,41 @@
   <message name = "HELLO">
     Create a perf on the server associated with the client.
     <field name = "nickname" type = "string">Client nickname</field>
-    <field name = "mtype"    type = "string">Measurement type</field>
-    <field name = "stype"    type = "string">Socket type</field>
   </message>
 
   <message name = "HELLO OK">
     Create a perf on the server associated with the client.
     <field name = "nickname" type = "string">Client nickname</field>
+  </message>
+
+  <message name = "CREATE">
     <field name = "mtype"    type = "string">Measurement type</field>
     <field name = "stype"    type = "string">Socket type</field>
   </message>
 
+  <message name = "CREATE-OK">
+    <field name = "mtype"    type = "string">Measurement type</field>
+    <field name = "stype"    type = "string">Socket type</field>
+    <field name = "ident"    type = "string">ID for the perf instance</field>
+  </message>
+
   <message name = "SOCKET">
     Bind or connect the measurement socket to the address.
+    <field name = "ident"    type = "string">ID for the perf instance</field>
     <field name = "action"   type = "string">Bind or Connect</field>
     <field name = "endpoint" type = "string">Address</field>
   </message>
 
   <message name = "SOCKET OK">
     Bind or connect the measurement socket to the address.
+    <field name = "ident"    type = "string">ID for the perf instance</field>
     <field name = "action"   type = "string">Bind or Connect</field>
     <field name = "endpoint" type = "string">Address</field>
   </message>
 
   <message name = "MEASURE">
     Initiate a measurement.
+    <field name = "ident"    type = "string">ID for the perf instance</field>
     <field name = "nmsgs" type = "number" size = "4">Number of messages</field>
     <field name = "msgsize" type = "number" size = "8">Message size in bytes</field>
     <field name = "timeout" type = "number" size = "4">Timeout in msec</field>
@@ -53,6 +64,7 @@
 
   <message name = "RESULT">
     The results of a measurement.
+    <field name = "ident"    type = "string">ID for the perf instance</field>
     <field name = "nmsgs" type = "number" size = "4">Number of messages</field>
     <field name = "msgsize" type = "number" size = "8">Message size in bytes</field>
     <field name = "timeout" type = "number" size = "4">Timeout in millisec</field>

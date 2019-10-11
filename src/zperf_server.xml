@@ -28,22 +28,40 @@
 
   
   <state name = "connected" inherit = "defaults">
-    <event name = "SOCKET">
-      <action name = "connect or bind" />
-      <action name = "send" message = "SOCKET OK" />
+    <event name = "CREATE">
+      <action name = "create perf" />
+      <action name = "send" message = "CREATE OK" />
     </event>
+
+    <event name = "SOCKET">
+      <action name = "set perf by ident" />
+      <action name = "connect or bind" />
+    </event>
+    <!-- event emitted by perf pipe handler, which also readies message -->
+    <event name = "socket return">
+      <action name = "set perf by socket" />
+      <action name = "send" message = "SOCKET-OK" />
+    </event>
+
     <event name = "MEASURE">
-      <action name = "take measurement" />
-      <action name = "send" message = "RESULT" />
+      <action name = "set perf by ident" />
+      <action name = "start measure" />
+    </event>
+    <!-- event emitted by perf pipe handler, which also readies message -->
+    <event name = "measure return" >
+      <action name = "set perf by socket" />
+      <action name = "send" message = "RESULTS" />
     </event>
 
     <event name = "PING">
       <action name = "send" message = "PING OK" />
     </event>
+
     <event name = "GOODBYE">
       <action name = "send" message = "GOODBYE OK" />
       <action name = "terminate" />
     </event>
+
   </state>
 
 

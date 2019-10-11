@@ -169,6 +169,17 @@ signal_command_invalid (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
+//  set_perf_by_ident
+//
+
+static void
+set_perf_by_ident (client_t *self)
+{
+
+}
+
+
+//  ---------------------------------------------------------------------------
 //  connect_or_bind
 //
 
@@ -180,11 +191,22 @@ connect_or_bind (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  take_measurement
+//  set_perf_by_socket
 //
 
 static void
-take_measurement (client_t *self)
+set_perf_by_socket (client_t *self)
+{
+
+}
+
+
+//  ---------------------------------------------------------------------------
+//  start_measure
+//
+
+static void
+start_measure (client_t *self)
 {
 
 }

@@ -35,12 +35,15 @@ typedef enum {
     NULL_event = 0,
     terminate_event = 1,
     hello_event = 2,
-    socket_event = 3,
-    measure_event = 4,
-    ping_event = 5,
-    goodbye_event = 6,
-    expired_event = 7,
-    exception_event = 8
+    create_event = 3,
+    socket_event = 4,
+    socket_return_event = 5,
+    measure_event = 6,
+    measure_return_event = 7,
+    ping_event = 8,
+    goodbye_event = 9,
+    expired_event = 10,
+    exception_event = 11
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -57,8 +60,11 @@ s_event_name [] = {
     "(NONE)",
     "terminate",
     "HELLO",
+    "CREATE",
     "SOCKET",
+    "socket_return",
     "MEASURE",
+    "measure_return",
     "PING",
     "GOODBYE",
     "expired",
@@ -136,9 +142,13 @@ static void
 static void
     signal_command_invalid (client_t *self);
 static void
+    set_perf_by_ident (client_t *self);
+static void
     connect_or_bind (client_t *self);
 static void
-    take_measurement (client_t *self);
+    set_perf_by_socket (client_t *self);
+static void
+    start_measure (client_t *self);
 
 //  ---------------------------------------------------------------------------
 //  These methods are an internal API for actions
@@ -369,6 +379,9 @@ s_protocol_event (zperf_msg_t *message)
         case ZPERF_MSG_HELLO:
             return hello_event;
             break;
+        case ZPERF_MSG_CREATE:
+            return create_event;
+            break;
         case ZPERF_MSG_SOCKET:
             return socket_event;
             break;
@@ -550,12 +563,45 @@ s_client_execute (s_client_t *self, event_t event)
                 break;
 
             case connected_state:
+                if (self->event == create_event) {
+                    if (!self->exception) {
+                        //  create perf
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ create perf", self->log_prefix);
+                        create_perf (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send CREATE_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send CREATE_OK",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_CREATE_OK);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                }
+                else
                 if (self->event == socket_event) {
+                    if (!self->exception) {
+                        //  set perf by ident
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set perf by ident", self->log_prefix);
+                        set_perf_by_ident (&self->client);
+                    }
                     if (!self->exception) {
                         //  connect or bind
                         if (self->server->verbose)
                             zsys_debug ("%s:         $ connect or bind", self->log_prefix);
                         connect_or_bind (&self->client);
+                    }
+                }
+                else
+                if (self->event == socket_return_event) {
+                    if (!self->exception) {
+                        //  set perf by socket
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set perf by socket", self->log_prefix);
+                        set_perf_by_socket (&self->client);
                     }
                     if (!self->exception) {
                         //  send SOCKET_OK
@@ -570,17 +616,32 @@ s_client_execute (s_client_t *self, event_t event)
                 else
                 if (self->event == measure_event) {
                     if (!self->exception) {
-                        //  take measurement
+                        //  set perf by ident
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ take measurement", self->log_prefix);
-                        take_measurement (&self->client);
+                            zsys_debug ("%s:         $ set perf by ident", self->log_prefix);
+                        set_perf_by_ident (&self->client);
                     }
                     if (!self->exception) {
-                        //  send RESULT
+                        //  start measure
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ send RESULT",
+                            zsys_debug ("%s:         $ start measure", self->log_prefix);
+                        start_measure (&self->client);
+                    }
+                }
+                else
+                if (self->event == measure_return_event) {
+                    if (!self->exception) {
+                        //  set perf by socket
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set perf by socket", self->log_prefix);
+                        set_perf_by_socket (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send RESULTS
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send RESULTS",
                                 self->log_prefix);
-                        zperf_msg_set_id (self->server->message, ZPERF_MSG_RESULT);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_RESULTS);
                         zperf_msg_set_routing_id (self->server->message, self->routing_id);
                         zperf_msg_send (self->server->message, self->server->router);
                     }

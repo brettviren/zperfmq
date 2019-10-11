@@ -2,7 +2,7 @@
 digraph "zperf_client" {
 
  "start" [shape = "doublecircle"];
- "start connect" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">connect</font></td></tr><tr><td align="left" port="r3">connect to server endpoint</td></tr><tr><td align="left" port="r3">set client identity</td></tr><tr><td align="left" port="r3">use connect timeout</td></tr><tr><td align="left" port="r3">send (hello)</td></tr></table>>];
+ "start connect" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">connect</font></td></tr><tr><td align="left" port="r3">connect to server endpoint</td></tr><tr><td align="left" port="r3">set nickname</td></tr><tr><td align="left" port="r3">use connect timeout</td></tr><tr><td align="left" port="r3">send (hello)</td></tr></table>>];
  "start" -> "start connect";
  "start connect" -> "expect hello ok";
  "start bad endpoint" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">bad endpoint</font></td></tr><tr><td align="left" port="r3">signal bad endpoint</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
@@ -16,6 +16,9 @@ digraph "zperf_client" {
  "expect hello ok destructor" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">destructor</font></td></tr><tr><td align="left" port="r3">send (goodbye)</td></tr></table>>];
  "expect hello ok" -> "expect hello ok destructor";
  "expect hello ok destructor" -> "expect goodbye ok";
+ "expect hello ok expired" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr><tr><td align="left" port="r3">check if connection is dead</td></tr><tr><td align="left" port="r3">send (ping)</td></tr></table>>];
+ "expect hello ok" -> "expect hello ok expired";
+ "expect hello ok expired" -> "expect hello ok";
  "expect hello ok ping ok" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ping ok</font></td></tr><tr><td align="left" port="r3">client is connected</td></tr></table>>];
  "expect hello ok" -> "expect hello ok ping ok";
  "expect hello ok ping ok" -> "expect hello ok";
@@ -28,12 +31,9 @@ digraph "zperf_client" {
  "expect hello ok *" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr><tr><td align="left" port="r3">signal internal error</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
  "expect hello ok" -> "expect hello ok *";
  "expect hello ok *" -> "expect hello ok";
- "expect hello ok hello ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">hello ok</font></td></tr><tr><td align="left" port="r3">signal connected</td></tr></table>>];
+ "expect hello ok hello ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">hello ok</font></td></tr><tr><td align="left" port="r3">signal connected</td></tr><tr><td align="left" port="r3">client is connected</td></tr></table>>];
  "expect hello ok" -> "expect hello ok hello ok";
  "expect hello ok hello ok" -> "connected";
- "expect hello ok expired" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr></table>>];
- "expect hello ok" -> "expect hello ok expired";
- "expect hello ok expired" -> "start";
 
  "connected" [shape = "doublecircle"];
  "connected destructor" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">destructor</font></td></tr><tr><td align="left" port="r3">send (goodbye)</td></tr></table>>];
@@ -54,6 +54,9 @@ digraph "zperf_client" {
  "connected *" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr><tr><td align="left" port="r3">signal internal error</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
  "connected" -> "connected *";
  "connected *" -> "connected";
+ "connected create perf" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">create perf</font></td></tr><tr><td align="left" port="r3">set perf attributes</td></tr><tr><td align="left" port="r3">send (create)</td></tr></table>>];
+ "connected" -> "connected create perf";
+ "connected create perf" -> "expect create ok";
  "connected set socket" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">set socket</font></td></tr><tr><td align="left" port="r3">set socket request</td></tr><tr><td align="left" port="r3">send (socket)</td></tr></table>>];
  "connected" -> "connected set socket";
  "connected set socket" -> "expect socket ok";
@@ -61,10 +64,36 @@ digraph "zperf_client" {
  "connected" -> "connected set measurement";
  "connected set measurement" -> "expect result";
 
+ "expect create ok" [shape = "doublecircle"];
+ "expect create ok destructor" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">destructor</font></td></tr><tr><td align="left" port="r3">send (goodbye)</td></tr></table>>];
+ "expect create ok" -> "expect create ok destructor";
+ "expect create ok destructor" -> "expect goodbye ok";
+ "expect create ok expired" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr><tr><td align="left" port="r3">check if connection is dead</td></tr><tr><td align="left" port="r3">send (ping)</td></tr></table>>];
+ "expect create ok" -> "expect create ok expired";
+ "expect create ok expired" -> "expect create ok";
+ "expect create ok ping ok" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ping ok</font></td></tr><tr><td align="left" port="r3">client is connected</td></tr></table>>];
+ "expect create ok" -> "expect create ok ping ok";
+ "expect create ok ping ok" -> "expect create ok";
+ "expect create ok error" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">error</font></td></tr><tr><td align="left" port="r3">check status code</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "expect create ok" -> "expect create ok error";
+ "expect create ok error" -> "expect create ok";
+ "expect create ok exception" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">exception</font></td></tr></table>>];
+ "expect create ok" -> "expect create ok exception";
+ "expect create ok exception" -> "expect create ok";
+ "expect create ok *" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr><tr><td align="left" port="r3">signal internal error</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "expect create ok" -> "expect create ok *";
+ "expect create ok *" -> "expect create ok";
+ "expect create ok create ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">create ok</font></td></tr><tr><td align="left" port="r3">remember perf</td></tr><tr><td align="left" port="r3">signal perf creation</td></tr></table>>];
+ "expect create ok" -> "expect create ok create ok";
+ "expect create ok create ok" -> "connected";
+
  "expect socket ok" [shape = "doublecircle"];
  "expect socket ok destructor" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">destructor</font></td></tr><tr><td align="left" port="r3">send (goodbye)</td></tr></table>>];
  "expect socket ok" -> "expect socket ok destructor";
  "expect socket ok destructor" -> "expect goodbye ok";
+ "expect socket ok expired" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr><tr><td align="left" port="r3">check if connection is dead</td></tr><tr><td align="left" port="r3">send (ping)</td></tr></table>>];
+ "expect socket ok" -> "expect socket ok expired";
+ "expect socket ok expired" -> "expect socket ok";
  "expect socket ok ping ok" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ping ok</font></td></tr><tr><td align="left" port="r3">client is connected</td></tr></table>>];
  "expect socket ok" -> "expect socket ok ping ok";
  "expect socket ok ping ok" -> "expect socket ok";
@@ -80,14 +109,14 @@ digraph "zperf_client" {
  "expect socket ok socket ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">socket ok</font></td></tr><tr><td align="left" port="r3">set socket request</td></tr><tr><td align="left" port="r3">signal socket request</td></tr></table>>];
  "expect socket ok" -> "expect socket ok socket ok";
  "expect socket ok socket ok" -> "connected";
- "expect socket ok expired" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr></table>>];
- "expect socket ok" -> "expect socket ok expired";
- "expect socket ok expired" -> "start";
 
  "expect result" [shape = "doublecircle"];
  "expect result destructor" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">destructor</font></td></tr><tr><td align="left" port="r3">send (goodbye)</td></tr></table>>];
  "expect result" -> "expect result destructor";
  "expect result destructor" -> "expect goodbye ok";
+ "expect result expired" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr><tr><td align="left" port="r3">check if connection is dead</td></tr><tr><td align="left" port="r3">send (ping)</td></tr></table>>];
+ "expect result" -> "expect result expired";
+ "expect result expired" -> "expect result";
  "expect result ping ok" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ping ok</font></td></tr><tr><td align="left" port="r3">client is connected</td></tr></table>>];
  "expect result" -> "expect result ping ok";
  "expect result ping ok" -> "expect result";
@@ -103,9 +132,6 @@ digraph "zperf_client" {
  "expect result result" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">result</font></td></tr><tr><td align="left" port="r3">set results</td></tr><tr><td align="left" port="r3">signal results</td></tr></table>>];
  "expect result" -> "expect result result";
  "expect result result" -> "connected";
- "expect result expired" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr></table>>];
- "expect result" -> "expect result expired";
- "expect result expired" -> "start";
 
  "expect goodbye ok" [shape = "doublecircle"];
  "expect goodbye ok destructor" [shape = "Mrecord" style = dashed label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">destructor</font></td></tr><tr><td align="left" port="r3">send (goodbye)</td></tr></table>>];

@@ -132,3 +132,17 @@ Some ideas for future extension:
 
 - Support different measurement halting conditions to be robust against message loss (eg when PUB/SUB support is added) and against variable number of messages such as when PUSH/PULL or PUB/SUB networks of greater than 2 nodes are launched.
 
+
+* Coordination
+
+A pair of ~perf~ actors to not have any internal coordination beyond waiting for the receipt of the first message before starting any stopwatches.  For a single measurement, the only external coordination required is that a sender must stay alive long enough after all messages are sent to allow for any output queues to drain.
+
+A ~perf~ actor can be directed to perform a sequence of measurements and these do not have any additional coordination requirements if the actor employs a single ZeroMQ I/O thread.  However, this changes in the case of using multiple I/O threads and multiple ~connect()~ to a socket.  Such a configuration is needed to achieve better than 20-25 Gbps.   It also results in messages being sent and received out-of-order.  In a sequence of coordinated messages, this out-of-order poses no problem.  If not, initial messages from a subsequent measurement will begin flowing and mix with the last few messages from the previous measurement.  Beside introducing a race condition with the new measurement command message, this mixing inescapably confuses the receiving end which expects certain sizes message and at best skews results.
+
+Thus, to coordinate a sequence of measurements, in general, there must be a means to fully complete one before staring the next.  This can be done at the level of the shell by waiting for the ~zperfcli~ of both ends to exit before starting new ones.  Another mechanism is using the Zperf client and server.
+
+The Zperf server accepts requests from the client for creation of one or more ~perf~ actors and will go on to accept and forward commands to bind or connect the ~perf~ measurement socket or initiate measurements and return the results.  The client side can then assure coordination.
+
+This is an overblown solution that ~bash~ and ~ssh~ can also solve, but it gives a reason to learn how to use ~zproto~.
+
+

@@ -17,7 +17,7 @@
   <state name = "start">
     <event name = "connect" next = "expect hello ok">
       <action name = "connect to server endpoint" />
-      <action name = "set client identity" />
+      <action name = "set nickname" />
       <action name = "use connect timeout" />
       <action name = "send" message = "HELLO" />
     </event>
@@ -33,12 +33,15 @@
   <state name = "expect hello ok" inherit = "defaults">
     <event name = "HELLO OK" next = "connected">
       <action name = "signal connected" />
-    </event>
-    <event name = "expired" next = "start">
+      <action name = "client is connected" />
     </event>
   </state>
 
   <state name = "connected" inherit = "defaults">
+    <event name = "create perf" next = "expect create ok">
+      <action name = "set perf attributes" />
+      <action name = "send" message = "CREATE" />
+    </event>
     <event name = "set socket" next = "expect socket ok">
       <action name = "set socket request" />
       <action name = "send" message = "SOCKET" />
@@ -49,22 +52,24 @@
     </event>
   </state>
 
+  <state name = "expect create ok" inherit = "defaults">
+    <event name = "CREATE OK" next = "connected">
+      <action name = "remember perf" />
+      <action name = "signal perf creation" />
+    </event>
+  </state>
+
   <state name = "expect socket ok" inherit = "defaults">
     <event name = "SOCKET OK" next = "connected">
       <action name = "set socket request" />
       <action name = "signal socket request" />
     </event>
-    <event name = "expired" next = "start">
-    </event>
   </state>
-
   
   <state name = "expect result" inherit = "defaults">
     <event name = "RESULT" next = "connected">
       <action name = "set results" />
       <action name = "signal results" />
-    </event>
-    <event name = "expired" next = "start">
     </event>
   </state>
 
@@ -107,24 +112,45 @@
 
   <!-- API methods -->
 
+  <method name = "create perf" return = "status">
+    Request a perf to be created.  Returned perf ident is needed for
+    any subsequent set_socket or set_measurement method calls .
+
+    <field name = "mtype" type = "string">Measurement type</field>
+    <field name = "stype" type = "string">Socket type</field>
+
+    <accept reply = "SUCCESS" />
+    <accept reply = "FAILURE" />
+  </method>
+
   <method name = "set socket" return = "status">
     Request that a measurement socket be opened on the given endpoint
-    where action is bind or connect.
-    <field name = "action" type = "string" />
-    <field name = "endpoint" type = "string" />
+    where action is bind or connect.  The ident comes from a
+    create_perf() call.
+
+    <field name = "ident"    type = "string">ID for the perf instance</field>
+    <field name = "action" type = "string" >The socket action (bind or connect)</field>
+    <field name = "endpoint" type = "string" >The endpoint address in ZeroMQ format</field>
+
     <accept reply = "SUCCESS" />
     <accept reply = "FAILURE" />
   </method>
 
   <method name = "set measurement" return = "status">
-    <field name = "nmsgs" type = "number" size = "4" />
-    <field name = "msgsize" type = "number" size = "8" />
-    <field name = "timeout" type = "number" size = "4" />
+    Set a measurement to be performed.  The ident comes from a
+    create_perf() call.  Calling this before successfully setting a
+    socket is pointless.
+
+    <field name = "ident"    type = "string">ID for the perf instance</field>
+    <field name = "nmsgs" type = "number" size = "4" >Number of messages to process</field>
+    <field name = "msgsize" type = "number" size = "8" >Size of messages to process</field>
+    <field name = "timeout" type = "number" size = "4" >Timeout in msec after no activity</field>
     <accept reply = "SUCCESS" />
     <accept reply = "FAILURE" />
   </method>
 
   <reply name = "RESULT">
+    <field name = "ident"    type = "string">ID for the perf instance</field>
     <field name = "nmsgs" type = "number" size = "4">Number of messages</field>
     <field name = "msgsize" type = "number" size = "8">Message size in bytes</field>
     <field name = "timeout" type = "number" size = "4">Timeout in millisec</field>
@@ -132,6 +158,8 @@
     <field name = "cpu_us" type = "number" size = "8">CPU time used (user+system) in microseconds</field>
     <field name = "noos" type = "number" size = "4">Number of out-of-order messages</field>
     <field name = "nbytes" type = "number" size = "8">Number of bytes processed</field>
+    <accept reply = "SUCCESS" />
+    <accept reply = "FAILURE" />
   </reply>
 
   <reply name = "SUCCESS">

@@ -88,11 +88,11 @@ connect_to_server_endpoint (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  set_client_identity
+//  set_nickname
 //
 
 static void
-set_client_identity (client_t *self)
+set_nickname (client_t *self)
 {
 }
 
@@ -138,6 +138,26 @@ signal_connected (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
+//  client_is_connected
+//
+
+static void
+client_is_connected (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  set_perf_attributes
+//
+
+static void
+set_perf_attributes (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
 //  set_socket_request
 //
 
@@ -153,6 +173,26 @@ set_socket_request (client_t *self)
 
 static void
 set_measurement_request (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  remember_perf
+//
+
+static void
+remember_perf (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_perf_creation
+//
+
+static void
+signal_perf_creation (client_t *self)
 {
 }
 
@@ -193,16 +233,6 @@ signal_results (client_t *self)
 
 static void
 check_if_connection_is_dead (client_t *self)
-{
-}
-
-
-//  ---------------------------------------------------------------------------
-//  client_is_connected
-//
-
-static void
-client_is_connected (client_t *self)
 {
 }
 
