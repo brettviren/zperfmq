@@ -84,10 +84,10 @@ src: \
 
 # Produce generated code from models in the src directory
 code:
-	cd $(srcdir)/src; gsl -topdir:.. -zproject:1 -q zperf_msg.xml
-	cd $(srcdir)/src; gsl -topdir:.. -zproject:1 -q zperf_server.xml
-	cd $(srcdir)/src; gsl -topdir:.. -zproject:1 -q zperf_client.xml
 	cd $(srcdir); gsl -target:- project.xml
+	cd $(srcdir)/src; gsl -topdir:.. -q zperf_msg.xml
+	cd $(srcdir)/src; gsl -topdir:.. -q zperf_server.xml
+	cd $(srcdir)/src; gsl -topdir:.. -q zperf_client.xml
 
 # Directories with test fixtures optionally provided by the project,
 # and with volatile RW data possibly created by a selftest program.
