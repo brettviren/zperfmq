@@ -7,7 +7,7 @@
     url = "https://github.com/brettviren/zperfmq"
     repository = "https://github.com/brettviren/zperfmq"
     >
-  <include filename = "license.xml" />
+  <include filename = "src/license.xml" />
   <version major = "0" minor = "0" patch = "0" />
   <use project = "czmq" language="C++" />
 
@@ -43,6 +43,8 @@
   <model name = "zperf_server" />
   <model name = "zperf_client" />
 
+  <extra name = "zperf_server_engine.inc" />
+  <extra name = "zperf_client_engine.inc" />
 
   <main name="zperfcli" />
   <!-- todo: zperfd and zperfc -->
