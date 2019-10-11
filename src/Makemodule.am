@@ -13,6 +13,8 @@ lib_LTLIBRARIES += src/libzperfmq.la
 pkgconfig_DATA = src/libzperfmq.pc
 
 src_libzperfmq_la_SOURCES = \
+    src/zperf_server_engine.inc \
+    src/zperf_client_engine.inc \
     src/platform.h
 
 if ENABLE_DRAFTS
@@ -20,9 +22,7 @@ src_libzperfmq_la_SOURCES += \
     src/zperf.cpp \
     src/zperf_msg.cpp \
     src/zperf_server.cpp \
-    src/zperf_server_engine.inc \
     src/zperf_client.cpp \
-    src/zperf_client_engine.inc \
     src/perf.cpp
 
 endif

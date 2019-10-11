@@ -142,6 +142,8 @@ message(STATUS "Detected ZPERFMQ Version - ${ZPERFMQ_VERSION}")
 set (zperfmq_headers
     include/zperfmq_library.hpp
     include/zperfmq.hpp
+    src/zperf_server_engine.inc
+    src/zperf_client_engine.inc
 )
 
 IF (ENABLE_DRAFTS)

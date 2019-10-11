@@ -45,6 +45,8 @@ endif
 
 EXTRA_DIST += \
     bindings \
+    src/zperf_server_engine.inc \
+    src/zperf_client_engine.inc \
     src/zperfmq_classes.hpp
 
 # NOTE: this "include" syntax is not a "make" but an "autotools" keyword,
