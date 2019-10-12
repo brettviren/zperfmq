@@ -59,19 +59,7 @@ int socket_type(std::string name)
 
 static
 uint64_t run_it(zperf_t* zperf, const std::string& meas, int nmsgs, size_t msgsize) {
-    if (meas == "echo") {
-        return zperf_echo(zperf, nmsgs);
-    }
-    if (meas == "yodel") {
-        return zperf_yodel(zperf, nmsgs, msgsize);
-    }
-    if (meas == "send") {
-        return zperf_send(zperf, nmsgs, msgsize);
-    }
-    if (meas == "recv") {
-        return zperf_recv(zperf, nmsgs);
-    }
-    throw std::runtime_error("unkonwn measurement");
+    return zperf_measure(zperf, meas.c_str(), nmsgs, msgsize);
 }
 
 int main (int argc, char *argv [])

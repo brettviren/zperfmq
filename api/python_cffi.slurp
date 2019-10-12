@@ -28,66 +28,30 @@ const char *
 int
     zperf_connect (zperf_t *self, const char *address);
 
-// Perform an echo measurement, expecting a given number of
-// messages. Return elapsed operation time in microseconds.
+// Perform a measurement atomically.  This is simply the combination
+// of initialize() and finalize().
 uint64_t
-    zperf_echo (zperf_t *self, int nmsgs);
+    zperf_measure (zperf_t *self, const char *name, int nmsgs, uint64_t msgsize);
 
-// Initiate an echo measurement, expecting a given number of
-// messages.
+// Initiate a measurement.
 void
-    zperf_echo_ini (zperf_t *self, int nmsgs);
+    zperf_initiate (zperf_t *self, const char *name, int nmsgs, uint64_t msgsize);
 
-// Finalize a previously initiated echo measurement, return elapsed
-// operation time in microseconds.
+// Wait for the previously initiated a measurement.
 uint64_t
-    zperf_echo_fin (zperf_t *self);
+    zperf_finalize (zperf_t *self);
 
-// Perform a yodel measurement which sends the given number of
-// messages of given size to an echo service.  Return elapsed
-// operation time in microseconds.
+// Return the name of the last measurement.
+const char *
+    zperf_name (zperf_t *self);
+
+// The requested number of message for last measurement.
+int
+    zperf_nmsgs (zperf_t *self);
+
+// The requested size of message for last measurement.
 uint64_t
-    zperf_yodel (zperf_t *self, int nmsgs, uint64_t msgsize);
-
-// Initiate a yodel measurement which sends the given number of
-// messages of given size to an echo service.
-void
-    zperf_yodel_ini (zperf_t *self, int nmsgs, uint64_t msgsize);
-
-// Finalize a previously initialized yodel measurement, return
-// elapsed operation time in microseconds.
-uint64_t
-    zperf_yodel_fin (zperf_t *self);
-
-// Perform a send measurement sending the given number of message of
-// given size to a receiver.  Return elapsed operation time in
-// microseconds.
-uint64_t
-    zperf_send (zperf_t *self, int nmsgs, uint64_t msgsize);
-
-// Initialize a send measurement sending the given number of message
-// of given size to a receiver.
-void
-    zperf_send_ini (zperf_t *self, int nmsgs, uint64_t msgsize);
-
-// Finalize a previously initialized send measurement.  Return
-// elapsed operation time in microseconds.
-uint64_t
-    zperf_send_fin (zperf_t *self);
-
-// Perform a recv measurement recving the given number of messages.
-// Return elapsed operation time in microseconds.
-uint64_t
-    zperf_recv (zperf_t *self, int nmsgs);
-
-// Initialize a recv measurement.
-void
-    zperf_recv_ini (zperf_t *self, int nmsgs);
-
-// Finalize a previously initialized recv measurement.  Return
-// elapsed operation time in microseconds.
-uint64_t
-    zperf_recv_fin (zperf_t *self);
+    zperf_msgsize (zperf_t *self);
 
 // Return the number of messages that were received out of sync
 // during the previous yodel or recv measurements.  The measurement
@@ -104,6 +68,11 @@ uint64_t
 // measurement.  The measurement must be finalized.
 uint64_t
     zperf_cpu (zperf_t *self);
+
+// Return the elapsed time in microseconds used by the last
+// measurement.  The measurement must be finalized.
+uint64_t
+    zperf_time (zperf_t *self);
 
 // Self test of this class.
 void

@@ -40,77 +40,35 @@ ZPERFMQ_EXPORT int
     zperf_connect (zperf_t *self, const char *address);
 
 //  *** Draft method, for development use, may change without warning ***
-//  Perform an echo measurement, expecting a given number of
-//  messages. Return elapsed operation time in microseconds.
+//  Perform a measurement atomically.  This is simply the combination
+//  of initialize() and finalize().
 ZPERFMQ_EXPORT uint64_t
-    zperf_echo (zperf_t *self, int nmsgs);
+    zperf_measure (zperf_t *self, const char *name, int nmsgs, uint64_t msgsize);
 
 //  *** Draft method, for development use, may change without warning ***
-//  Initiate an echo measurement, expecting a given number of
-//  messages.
+//  Initiate a measurement.
 ZPERFMQ_EXPORT void
-    zperf_echo_ini (zperf_t *self, int nmsgs);
+    zperf_initiate (zperf_t *self, const char *name, int nmsgs, uint64_t msgsize);
 
 //  *** Draft method, for development use, may change without warning ***
-//  Finalize a previously initiated echo measurement, return elapsed
-//  operation time in microseconds.
+//  Wait for the previously initiated a measurement.
 ZPERFMQ_EXPORT uint64_t
-    zperf_echo_fin (zperf_t *self);
+    zperf_finalize (zperf_t *self);
 
 //  *** Draft method, for development use, may change without warning ***
-//  Perform a yodel measurement which sends the given number of
-//  messages of given size to an echo service.  Return elapsed
-//  operation time in microseconds.
+//  Return the name of the last measurement.
+ZPERFMQ_EXPORT const char *
+    zperf_name (zperf_t *self);
+
+//  *** Draft method, for development use, may change without warning ***
+//  The requested number of message for last measurement.
+ZPERFMQ_EXPORT int
+    zperf_nmsgs (zperf_t *self);
+
+//  *** Draft method, for development use, may change without warning ***
+//  The requested size of message for last measurement.
 ZPERFMQ_EXPORT uint64_t
-    zperf_yodel (zperf_t *self, int nmsgs, uint64_t msgsize);
-
-//  *** Draft method, for development use, may change without warning ***
-//  Initiate a yodel measurement which sends the given number of
-//  messages of given size to an echo service.
-ZPERFMQ_EXPORT void
-    zperf_yodel_ini (zperf_t *self, int nmsgs, uint64_t msgsize);
-
-//  *** Draft method, for development use, may change without warning ***
-//  Finalize a previously initialized yodel measurement, return
-//  elapsed operation time in microseconds.
-ZPERFMQ_EXPORT uint64_t
-    zperf_yodel_fin (zperf_t *self);
-
-//  *** Draft method, for development use, may change without warning ***
-//  Perform a send measurement sending the given number of message of
-//  given size to a receiver.  Return elapsed operation time in
-//  microseconds.
-ZPERFMQ_EXPORT uint64_t
-    zperf_send (zperf_t *self, int nmsgs, uint64_t msgsize);
-
-//  *** Draft method, for development use, may change without warning ***
-//  Initialize a send measurement sending the given number of message
-//  of given size to a receiver.
-ZPERFMQ_EXPORT void
-    zperf_send_ini (zperf_t *self, int nmsgs, uint64_t msgsize);
-
-//  *** Draft method, for development use, may change without warning ***
-//  Finalize a previously initialized send measurement.  Return
-//  elapsed operation time in microseconds.
-ZPERFMQ_EXPORT uint64_t
-    zperf_send_fin (zperf_t *self);
-
-//  *** Draft method, for development use, may change without warning ***
-//  Perform a recv measurement recving the given number of messages.
-//  Return elapsed operation time in microseconds.
-ZPERFMQ_EXPORT uint64_t
-    zperf_recv (zperf_t *self, int nmsgs);
-
-//  *** Draft method, for development use, may change without warning ***
-//  Initialize a recv measurement.
-ZPERFMQ_EXPORT void
-    zperf_recv_ini (zperf_t *self, int nmsgs);
-
-//  *** Draft method, for development use, may change without warning ***
-//  Finalize a previously initialized recv measurement.  Return
-//  elapsed operation time in microseconds.
-ZPERFMQ_EXPORT uint64_t
-    zperf_recv_fin (zperf_t *self);
+    zperf_msgsize (zperf_t *self);
 
 //  *** Draft method, for development use, may change without warning ***
 //  Return the number of messages that were received out of sync
@@ -130,6 +88,12 @@ ZPERFMQ_EXPORT uint64_t
 //  measurement.  The measurement must be finalized.
 ZPERFMQ_EXPORT uint64_t
     zperf_cpu (zperf_t *self);
+
+//  *** Draft method, for development use, may change without warning ***
+//  Return the elapsed time in microseconds used by the last
+//  measurement.  The measurement must be finalized.
+ZPERFMQ_EXPORT uint64_t
+    zperf_time (zperf_t *self);
 
 //  *** Draft method, for development use, may change without warning ***
 //  Self test of this class.

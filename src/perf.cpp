@@ -528,7 +528,7 @@ void s_report(const char* what, int nmsgs, size_t totdat, int64_t time_us, uint6
 static
 void s_ini(zactor_t* zp, const char* measure, int nmsgs, size_t msgsize)
 {
-    int rc = zsock_send(zp, "sii", measure, nmsgs, msgsize);
+    int rc = zsock_send(zp, "si8", measure, nmsgs, msgsize);
     assert(rc == 0);
 }
 
@@ -567,7 +567,7 @@ void s_bookends(const char* title,
                 const char* catcher_name, int catcher_socket, // binds
                 int nmsgs, size_t msgsize, bool reverse)      // b<-->c
 {
-    zsys_info("test %s: %s[%d]<-->%s[%d] %d of %ld",
+    zsys_info("perf test %s: %s[%d]<-->%s[%d] %d of %ld",
               title,
               pitcher_name, pitcher_socket,
               catcher_name, catcher_socket,
@@ -615,7 +615,8 @@ perf_test (bool verbose)
     s_bookends("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_ROUTER, nmsgs, 1<<10, false);
     s_bookends("lat", "YODEL", ZMQ_DEALER, "ECHO", ZMQ_REP, nmsgs, 1<<10, false);
 
-    //s_bookends("thr", "SEND", ZMQ_PUSH, "RECV", ZMQ_PULL, nmsgs, 1<<10, false);
+    s_bookends("thr", "SEND", ZMQ_PUSH, "RECV", ZMQ_PULL, nmsgs, 1<<10, false);
+
 
     //  @end
 

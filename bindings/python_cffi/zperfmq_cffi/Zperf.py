@@ -38,90 +38,42 @@ class Zperf(object):
         """
         return utils.lib.zperf_connect(self._p, utils.to_bytes(address))
 
-    def echo(self, nmsgs):
+    def measure(self, name, nmsgs, msgsize):
         """
-        Perform an echo measurement, expecting a given number of
-        messages. Return elapsed operation time in microseconds.
+        Perform a measurement atomically.  This is simply the combination
+        of initialize() and finalize().
         """
-        return utils.lib.zperf_echo(self._p, nmsgs)
+        return utils.lib.zperf_measure(self._p, utils.to_bytes(name), nmsgs, msgsize)
 
-    def echo_ini(self, nmsgs):
+    def initiate(self, name, nmsgs, msgsize):
         """
-        Initiate an echo measurement, expecting a given number of
-        messages.
+        Initiate a measurement.
         """
-        utils.lib.zperf_echo_ini(self._p, nmsgs)
+        utils.lib.zperf_initiate(self._p, utils.to_bytes(name), nmsgs, msgsize)
 
-    def echo_fin(self):
+    def finalize(self):
         """
-        Finalize a previously initiated echo measurement, return elapsed
-        operation time in microseconds.
+        Wait for the previously initiated a measurement.
         """
-        return utils.lib.zperf_echo_fin(self._p)
+        return utils.lib.zperf_finalize(self._p)
 
-    def yodel(self, nmsgs, msgsize):
+    def name(self):
         """
-        Perform a yodel measurement which sends the given number of
-        messages of given size to an echo service.  Return elapsed
-        operation time in microseconds.
+        Return the name of the last measurement.
         """
-        return utils.lib.zperf_yodel(self._p, nmsgs, msgsize)
+        return utils.lib.zperf_name(self._p)
 
-    def yodel_ini(self, nmsgs, msgsize):
+    def nmsgs(self):
         """
-        Initiate a yodel measurement which sends the given number of
-        messages of given size to an echo service.
+        The requested number of message for last measurement.
         """
-        utils.lib.zperf_yodel_ini(self._p, nmsgs, msgsize)
+        return utils.lib.zperf_nmsgs(self._p)
 
-    def yodel_fin(self):
+    def msgsize(self):
         """
-        Finalize a previously initialized yodel measurement, return
-        elapsed operation time in microseconds.
+        The requested size of message for last measurement.
         """
-        return utils.lib.zperf_yodel_fin(self._p)
-
-    def send(self, nmsgs, msgsize):
-        """
-        Perform a send measurement sending the given number of message of
-        given size to a receiver.  Return elapsed operation time in
-        microseconds.
-        """
-        return utils.lib.zperf_send(self._p, nmsgs, msgsize)
-
-    def send_ini(self, nmsgs, msgsize):
-        """
-        Initialize a send measurement sending the given number of message
-        of given size to a receiver.
-        """
-        utils.lib.zperf_send_ini(self._p, nmsgs, msgsize)
-
-    def send_fin(self):
-        """
-        Finalize a previously initialized send measurement.  Return
-        elapsed operation time in microseconds.
-        """
-        return utils.lib.zperf_send_fin(self._p)
-
-    def recv(self, nmsgs):
-        """
-        Perform a recv measurement recving the given number of messages.
-        Return elapsed operation time in microseconds.
-        """
-        return utils.lib.zperf_recv(self._p, nmsgs)
-
-    def recv_ini(self, nmsgs):
-        """
-        Initialize a recv measurement.
-        """
-        utils.lib.zperf_recv_ini(self._p, nmsgs)
-
-    def recv_fin(self):
-        """
-        Finalize a previously initialized recv measurement.  Return
-        elapsed operation time in microseconds.
-        """
-        return utils.lib.zperf_recv_fin(self._p)
+        return utils.lib.zperf_msgsize(self._p)
 
     def noos(self):
         """
@@ -144,6 +96,13 @@ class Zperf(object):
         measurement.  The measurement must be finalized.
         """
         return utils.lib.zperf_cpu(self._p)
+
+    def time(self):
+        """
+        Return the elapsed time in microseconds used by the last
+        measurement.  The measurement must be finalized.
+        """
+        return utils.lib.zperf_time(self._p)
 
     @staticmethod
     def test(verbose):

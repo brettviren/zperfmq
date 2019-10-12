@@ -60,7 +60,21 @@
     </return>
   </method>    
 
+  <method name = "name">
+    Return the name of the last measurement.
+    <return type="string" />
+  </method>
   
+  <method name = "nmsgs">
+    The requested number of message for last measurement.
+    <return type="integer" />
+  </method>
+
+  <method name = "msgsize">
+    The requested size of message for last measurement.
+    <return type="number" size="8" />
+  </method>
+
   <method name = "noos">
     Return the number of messages that were received out of sync
     during the previous yodel or recv measurements.  The measurement
@@ -76,6 +90,12 @@
 
   <method name = "cpu">
     Return the CPU time (user+system) in microseconds used by the last
+    measurement.  The measurement must be finalized.
+    <return type="number" size="8" />
+  </method>
+
+  <method name = "time">
+    Return the elapsed time in microseconds used by the last
     measurement.  The measurement must be finalized.
     <return type="number" size="8" />
   </method>
