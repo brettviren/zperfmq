@@ -36,39 +36,39 @@
   <message name = "CREATE-OK">
     <field name = "mtype"    type = "string">Measurement type</field>
     <field name = "stype"    type = "string">Socket type</field>
-    <field name = "ident"    type = "string">ID for the perf instance</field>
+    <field name = "ident"    type = "integer">ID for the perf instance</field>
   </message>
 
   <message name = "SOCKET">
     Bind or connect the measurement socket to the address.
-    <field name = "ident"    type = "string">ID for the perf instance</field>
+    <field name = "ident"    type = "integer">ID for the perf instance</field>
     <field name = "action"   type = "string">Bind or Connect</field>
     <field name = "endpoint" type = "string">Address</field>
   </message>
 
   <message name = "SOCKET OK">
     Bind or connect the measurement socket to the address.
-    <field name = "ident"    type = "string">ID for the perf instance</field>
+    <field name = "ident"    type = "integer">ID for the perf instance</field>
     <field name = "action"   type = "string">Bind or Connect</field>
     <field name = "endpoint" type = "string">Address</field>
   </message>
 
   <message name = "MEASURE">
     Initiate a measurement.
-    <field name = "ident"    type = "string">ID for the perf instance</field>
-    <field name = "nmsgs" type = "number" size = "4">Number of messages</field>
+    <field name = "ident"   type = "integer">ID for the perf instance</field>
+    <field name = "nmsgs"   type = "number" size = "4">Number of messages</field>
     <field name = "msgsize" type = "number" size = "8">Message size in bytes</field>
     <field name = "timeout" type = "number" size = "4">Timeout in msec</field>
   </message>
 
   <message name = "RESULT">
     The results of a measurement.
-    <field name = "ident"    type = "string">ID for the perf instance</field>
-    <field name = "nmsgs" type = "number" size = "4">Number of messages</field>
-    <field name = "msgsize" type = "number" size = "8">Message size in bytes</field>
-    <field name = "timeout" type = "number" size = "4">Timeout in millisec</field>
-    <field name = "time_us" type = "number" size = "8">Time elapsed in microseconds</field>
-    <field name = "cpu_us" type = "number" size = "8">CPU time used (user+system) in microseconds</field>
+    <field name = "ident"    type = "integer">ID for the perf instance</field>
+    <field name = "nmsgs"    type = "number" size = "4">Number of messages</field>
+    <field name = "msgsize"  type = "number" size = "8">Message size in bytes</field>
+    <field name = "timeout"  type = "number" size = "4">Timeout in millisec</field>
+    <field name = "time_us"  type = "number" size = "8">Time elapsed in microseconds</field>
+    <field name = "cpu_us"   type = "number" size = "8">CPU time used (user+system) in microseconds</field>
     <field name = "noos" type = "number" size = "4">Number of out-of-order messages</field>
     <field name = "nbytes" type = "number" size = "8">Number of bytes processed</field>
   </message>

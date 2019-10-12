@@ -25,78 +25,41 @@
     <return type="integer"/>
   </method>
 
-  <method name = "echo">
-    Perform an echo measurement, expecting a given number of
-    messages. Return elapsed operation time in microseconds.
-    <argument name= "nmsgs" type="integer" />
-    <return type="number" size="8"/>
-  </method>
-  <method name = "echo_ini">
-    Initiate an echo measurement, expecting a given number of
-    messages.
-    <argument name= "nmsgs" type="integer" />
-  </method>
-  <method name = "echo_fin">
-    Finalize a previously initiated echo measurement, return elapsed
-    operation time in microseconds.
-    <return type="number" size="8" />
-  </method>
+  <method name = "measure">
+    Perform a measurement atomically.  This is simply the combination
+    of initialize() and finalize().
+    <argument name= "name" type="string">
+      The name of the measurement (ECHO, YODEL, SEND, RECV)
+    </argument>
+    <argument name= "nmsgs" type="integer">
+      The number of messages to process
+    </argument>
+    <argument name= "msgsize" type="number" size="8">
+      The size of messages to process
+    </argument>
+    <return type="number" size="8">
+      The elapsed time in microseconds.
+    </return>
+  </method>    
+  <method name = "initiate">
+    Initiate a measurement.
+    <argument name= "name" type="string">
+      The name of the measurement (ECHO, YODEL, SEND, RECV)
+    </argument>
+    <argument name= "nmsgs" type="integer">
+      The number of messages to process
+    </argument>
+    <argument name= "msgsize" type="number" size="8">
+      The size of messages to process
+    </argument>
+  </method>    
+  <method name = "finalize">
+    Wait for the previously initiated a measurement.
+    <return type="number" size="8">
+      The elapsed time in microseconds.
+    </return>
+  </method>    
 
-  <method name = "yodel">
-    Perform a yodel measurement which sends the given number of
-    messages of given size to an echo service.  Return elapsed
-    operation time in microseconds.
-    <argument name= "nmsgs" type="integer" />
-    <argument name= "msgsize" type="number" size="8" />
-    <return type="number" size="8" />
-  </method>
-  <method name = "yodel_ini">
-    Initiate a yodel measurement which sends the given number of
-    messages of given size to an echo service.
-    <argument name= "nmsgs" type="integer" />
-    <argument name= "msgsize" type="number" size="8" />
-  </method>
-  <method name = "yodel_fin">
-    Finalize a previously initialized yodel measurement, return
-    elapsed operation time in microseconds.
-    <return type="number" size="8" />
-  </method>
-
-  <method name = "send">
-    Perform a send measurement sending the given number of message of
-    given size to a receiver.  Return elapsed operation time in
-    microseconds.
-    <argument name= "nmsgs" type="integer" />
-    <argument name= "msgsize" type="number" size="8" />
-    <return type="number" size="8" />
-  </method>
-  <method name = "send_ini">
-    Initialize a send measurement sending the given number of message
-    of given size to a receiver.
-    <argument name= "nmsgs" type="integer" />
-    <argument name= "msgsize" type="number" size="8" />
-  </method>
-  <method name = "send_fin">
-    Finalize a previously initialized send measurement.  Return
-    elapsed operation time in microseconds.
-    <return type="number" size="8" />
-  </method>
-
-  <method name = "recv">
-    Perform a recv measurement recving the given number of messages.
-    Return elapsed operation time in microseconds.
-    <argument name= "nmsgs" type="integer" />
-    <return type="number" size="8" />
-  </method>
-  <method name = "recv_ini">
-    Initialize a recv measurement.
-    <argument name= "nmsgs" type="integer" />
-  </method>
-  <method name = "recv_fin">
-    Finalize a previously initialized recv measurement.  Return
-    elapsed operation time in microseconds.
-    <return type="number" size="8" />
-  </method>
   
   <method name = "noos">
     Return the number of messages that were received out of sync

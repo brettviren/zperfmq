@@ -30,26 +30,26 @@ The following ABNF grammar defines the The Zperf Protocol:
     CREATE-OK       = signature %d4 mtype stype ident
     mtype           = string                ; Measurement type
     stype           = string                ; Socket type
-    ident           = string                ; ID for the perf instance
+    ident           = integer               ; ID for the perf instance
 
     ;  Bind or connect the measurement socket to the address.
 
     SOCKET          = signature %d5 ident action endpoint
-    ident           = string                ; ID for the perf instance
+    ident           = integer               ; ID for the perf instance
     action          = string                ; Bind or Connect
     endpoint        = string                ; Address
 
     ;  Bind or connect the measurement socket to the address.
 
     SOCKET-OK       = signature %d6 ident action endpoint
-    ident           = string                ; ID for the perf instance
+    ident           = integer               ; ID for the perf instance
     action          = string                ; Bind or Connect
     endpoint        = string                ; Address
 
     ;  Initiate a measurement.
 
     MEASURE         = signature %d7 ident nmsgs msgsize timeout
-    ident           = string                ; ID for the perf instance
+    ident           = integer               ; ID for the perf instance
     nmsgs           = number-4              ; Number of messages
     msgsize         = number-8              ; Message size in bytes
     timeout         = number-4              ; Timeout in msec
@@ -57,7 +57,7 @@ The following ABNF grammar defines the The Zperf Protocol:
     ;  The results of a measurement.
 
     RESULT          = signature %d8 ident nmsgs msgsize timeout time_us cpu_us noos nbytes
-    ident           = string                ; ID for the perf instance
+    ident           = integer               ; ID for the perf instance
     nmsgs           = number-4              ; Number of messages
     msgsize         = number-8              ; Message size in bytes
     timeout         = number-4              ; Timeout in millisec

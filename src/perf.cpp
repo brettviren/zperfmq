@@ -40,6 +40,21 @@ struct _perf_t {
 
     //  Declare properties
     zsock_t* sock;              /* The measurement socket */
+
+
+    // values active during a measure
+    const char* measure;
+    int nmsgs;
+    int noos;
+    size_t msgsize;
+    size_t totdata;
+    int64_t time_us;
+    int64_t cpu_us;
+
+    void* watch;
+    uint64_t cpu_start;
+    // for eg, ROUTER
+    zframe_t* idframe;
 };
 
 
@@ -137,204 +152,167 @@ static uint64_t s_cpu_now()
         (u.ru_utime.tv_sec + u.ru_stime.tv_sec)*1000000;
 }
 
+static void
+s_reset(perf_t* self, const char* measure, int nmsgs, size_t msgsize)
+{
+    assert (self);
+    self->measure = measure;
+    self->nmsgs = nmsgs;
+    self->noos = 0;
+    self->msgsize = msgsize;
+    self->totdata = 0;
+    self->time_us = self->cpu_us = 0;
+    self->watch = NULL;
+    self->cpu_start = 0;
+    assert (!self->idframe);
+}
+
+static void
+s_start(perf_t* self)
+{
+    self->watch = zmq_stopwatch_start();
+    self->cpu_start = s_cpu_now();
+}
+
 // Run an echo service.  Return results down pipe.
 
-// libzmq version
+static
+void s_send(perf_t* self, int count, zframe_t* frame)
+{    
+    // zsys_debug("send: %s count %d, frame %ld",
+    //            self->measure, count, zframe_size(frame));
 
-static int
-perf_echo_zmq (perf_t *self, int nmsgs)
+    zmsg_t* msg = zmsg_new();
+
+    if (ZMQ_ROUTER == zsock_type(self->sock)) {
+        // zsys_debug("send: %s id frame size %ld",
+        //            self->measure, zframe_size(self->idframe));
+        zmsg_pushmem(msg, NULL, 0); // delimiter
+        zmsg_prepend(msg, &self->idframe);
+    }
+    if (ZMQ_DEALER == zsock_type(self->sock)) {
+        zmsg_pushmem(msg, NULL, 0);
+    }
+
+    zmsg_addmem(msg, &count, sizeof(int));
+    zframe_t* dup = zframe_dup(frame);
+    zmsg_append(msg, &dup);
+
+    zmsg_send(&msg, self->sock);
+
+    // zsys_debug("send: %s count %d and frame of size %ld",
+    //            self->measure, count, zframe_size(frame));
+}
+
+static
+zframe_t* s_recv(perf_t* self, int count)
+{    
+    // zsys_debug("recv: %s count %d", self->measure, count);
+
+    zmsg_t* msg = zmsg_recv(self->sock);
+
+    if (ZMQ_ROUTER == zsock_type(self->sock)) {
+        self->idframe = zmsg_pop(msg);
+        zframe_t *delimiter = zmsg_pop(msg);
+        zframe_destroy(&delimiter);
+    }
+    if (ZMQ_DEALER == zsock_type(self->sock)) {
+        zframe_t *delimiter = zmsg_pop(msg);
+        zframe_destroy(&delimiter);
+    }
+    
+    zframe_t* cframe = zmsg_pop(msg);
+    assert(4 == zframe_size(cframe));
+    int got_count = *(int*)zframe_data(cframe);
+    zframe_destroy(&cframe);
+
+    zframe_t* pframe = zmsg_pop(msg);
+    zmsg_destroy(&msg);
+
+    // zsys_debug("recv: %s count %d, frame %ld",
+    //            self->measure, got_count, zframe_size(pframe));
+
+    if (count != got_count) {
+        ++ self->noos;
+    }
+
+    const size_t this_size = zframe_size (pframe);
+    if (this_size != self->msgsize) {
+        zsys_warning("%s: recv: size mismatch on %d. want: %ld, got: %ld",
+                     self->measure, count, self->msgsize, this_size);
+        zframe_destroy(&pframe);
+        return NULL;
+    }
+    return pframe;
+}
+
+static
+int s_signal(perf_t* self)
 {
-    assert (self);
+    self->time_us = zmq_stopwatch_stop(self->watch);
+    self->cpu_us = s_cpu_now() - self->cpu_start;
 
-    int rc = 0;
+    // zsys_debug("%s signal: %d msgs totdata %ld in %ld us and %d ooo",
+    //            self->measure, self->nmsgs, self->totdata, self->time_us, self->noos);
 
-    size_t totdat = 0;
-    void* watch = NULL;
-    uint64_t cpu_start = 0;
-
-    void* s = zsock_resolve(self->sock);
-    assert(s);
-    zmq_msg_t msg;
-    rc = zmq_msg_init (&msg);
-    if (rc < 0) {
-        zsys_error ("echo: error in zmq_msg_init: %s\n", zmq_strerror (errno));
-        return rc;
-    }
-
-    // double the message to account for multipart (count, payload)
-    for (int count=0; count < 2*nmsgs; ++count) {
-
-        rc = zmq_recvmsg (s, &msg, 0);
-        if (rc < 0) {
-            zsys_error ("echo: error in zmq_recvmsg: %s\n", zmq_strerror (errno));
-            return -1;
-        }
-
-        if (!watch) {           // start after first yodel received
-            watch = zmq_stopwatch_start();
-            cpu_start = s_cpu_now();
-        }
-
-        // libzmq perf checks size, here we trust....
-        totdat += zmq_msg_size (&msg);
-
-        rc = zmq_sendmsg (s, &msg, 0);
-        if (rc < 0) {
-            zsys_error ("echo: error in zmq_sendmsg: %s\n", zmq_strerror (errno));
-            return -1;
-        }
-    }
-    rc = zmq_msg_close (&msg);
-    if (rc != 0) {
-        zsys_error ("echo: error in zmq_msg_close: %s\n", zmq_strerror (errno));
-        return -1;
-    }
-
-    const int64_t elapsed = zmq_stopwatch_stop(watch);
-    const uint64_t cpu_us = s_cpu_now() - cpu_start;
-
-    // ECHO <nmsgs> <total_size> <time_us> <cpu_us>
-    rc = zsock_send(self->pipe, "si88", "ECHO",
-                    nmsgs, totdat, elapsed, cpu_us);
-
+    // <mesaure> <nmsgs> <total_size> <time_us> <cpu_us> <noos>
+    int rc = zsock_send(self->pipe, "si888i", self->measure,
+                        self->nmsgs, self->totdata,
+                        self->time_us, self->cpu_us, self->noos);
     return rc;
 }
 
-// czmq version
+
+zframe_t* s_frame_new(perf_t* self)
+{
+    zframe_t* frame = zframe_new(NULL, self->msgsize);
+    assert(frame);
+    memset (zframe_data(frame), 0, zframe_size(frame));
+    return frame;
+}
+
 
 static int
-perf_echo_czmq (perf_t *self, int nmsgs)
+perf_echo (perf_t *self, int nmsgs, size_t msgsize)
 {
-    assert (self);
-
-    size_t totdat = 0;
-    void* watch = NULL;
-    uint64_t cpu_start = 0;
+    s_reset(self, "ECHO", nmsgs, msgsize);
     for (int count=0; count<nmsgs; ++count) {
-        zmsg_t* msg = zmsg_recv(self->sock);
-        if (!watch) {           // start after first yodel received
-            watch = zmq_stopwatch_start();
-            cpu_start = s_cpu_now();
-        }
-        totdat += zmsg_size(msg);
-        int rc = zmsg_send(&msg, self->sock);
-        assert (rc == 0);
+
+        if (count == 1) {       // start after first yodel received
+            s_start(self);      // ignores async starts
+        } 
+
+        zframe_t* frame = s_recv(self, count);
+        if (!frame) { return -1; }
+
+        self->totdata += zframe_size(frame);
+
+        s_send(self, count, frame);
+        zframe_destroy(&frame);
     }
-
-    const int64_t elapsed = zmq_stopwatch_stop(watch);
-    const uint64_t cpu_us = s_cpu_now() - cpu_start;
-
-    // ECHO <nmsgs> <total_size> <time_us> <cpu_us>
-    int rc = zsock_send(self->pipe, "si88", "ECHO",
-                        nmsgs, totdat, elapsed, cpu_us);
-
-    return rc;
+    return s_signal(self);
 }
-
 
 // Run a latency measurement against an echo service.  Return results
 // down pipe.
 
 static int
-perf_yodel_zmq (perf_t *self, int nmsgs, size_t msgsize)
+perf_yodel (perf_t *self, int nmsgs, size_t msgsize)
 {
-    assert (self);
-
-    void* s = zsock_resolve(self->sock);
-    assert(s);
-    zmq_msg_t payload;
-    int rc = zmq_msg_init_size (&payload, msgsize);
-    if (rc != 0) {
-        zsys_error ("yodel: error in zmq_msg_init_size: %s\n", zmq_strerror (errno));
-        return -1;
-    }
-    memset (zmq_msg_data (&payload), 0, msgsize);
-
-    int noos = 0;
-    void* watch = zmq_stopwatch_start();
-    uint64_t cpu_start = s_cpu_now();
-
+    s_reset(self, "YODEL", nmsgs, msgsize);
+    zframe_t* frame = s_frame_new(self);
+    s_start(self);
     for (int count=0; count < nmsgs; ++count) {
-        rc = zmq_send(s, &count, sizeof(int), ZMQ_SNDMORE);
-        if (rc < 0) {
-            zsys_error ("yodel: error in zmq_send: %s\n", zmq_strerror (errno));
-            return -1;
-        }
-        rc = zmq_sendmsg(s, &payload, 0);
-        if (rc < 0) {
-            zsys_error ("yodel: error in zmq_sendmsg: %s\n", zmq_strerror (errno));
-            return -1;
-        }
-        int got_count = 0;
-        size_t got_size = zmq_recv(s, &got_count, sizeof(int), 0);
-        if (got_size != sizeof(int)) {
-            zsys_error ("yodel: got wrong size");
-            return -1;
-        }
-        if (count != got_count) {
-            ++noos;             /* number out-of-sync */
-        }
-        rc = zmq_recvmsg(s, &payload, 0);
-        if (rc < 0) {
-            zsys_error ("yodel: error in zmq_recvmsg: %s\n", zmq_strerror (errno));
-            return -1;
-        }
-        if (zmq_msg_size(&payload) != msgsize) {
-            zsys_error ("yodel: message size mismatch");
-            return -1;
-        }
-    }
-    const int64_t elapsed = zmq_stopwatch_stop(watch);
-    const uint64_t cpu_us = s_cpu_now() - cpu_start;
+        s_send(self, count, frame);
 
-    rc = zmq_msg_close (&payload);
-    if (rc != 0) {
-        zsys_error ("yodel: error in zmq_msg_close: %s\n", zmq_strerror (errno));
-        return -1;
-    }
+        zframe_t* got_frame = s_recv(self, count);
+        if (!got_frame) { return -1; }
+        self->totdata += zframe_size(got_frame);
 
-    // YODEL <nmsgs> <msgsize> <time_us> <cpu_us> <noos>
-    rc = zsock_send(self->pipe, "si888i", "YODEL",
-                    nmsgs, msgsize, elapsed, cpu_us, noos);
-    return rc;
-}
-
-static int
-perf_yodel_czmq (perf_t *self, int nmsgs, size_t msgsize)
-{
-    assert (self);
-
-    // This test currently uses CZMQ level of functions which may add
-    // its own latency.  
-    zframe_t* frame = zframe_new(NULL, msgsize);
-    assert(frame);
-    memset (zframe_data(frame), 0, zframe_size(frame));
-
-    int rc=0, noos = 0;
-    void* watch = zmq_stopwatch_start();
-    uint64_t cpu_start = s_cpu_now();
-
-    for (int count=0; count < nmsgs; ++count) {
-        rc = zsock_send(self->sock, "if", count, frame);
-        assert(rc == 0);
-        zframe_t* got_frame = NULL;
-        int got_count = 0;
-        rc = zsock_recv(self->sock, "if", &got_count, &got_frame);
-        assert (rc == 0);
-        if (count != got_count) {
-            ++noos;             /* number out-of-sync */
-        }
         zframe_destroy(&got_frame);
     }
-    const int64_t elapsed = zmq_stopwatch_stop(watch);
-    const uint64_t cpu_us = s_cpu_now() - cpu_start;
-
     zframe_destroy(&frame);
-
-    // YODEL <nmsgs> <msgsize> <time_us> <cpu_us> <noos>
-    rc = zsock_send(self->pipe, "si888i", "YODEL",
-                    nmsgs, msgsize, elapsed, cpu_us, noos);
-    return rc;
+    return s_signal(self);
 }
 
 
@@ -343,79 +321,54 @@ perf_yodel_czmq (perf_t *self, int nmsgs, size_t msgsize)
 static int
 perf_send (perf_t *self, int nmsgs, size_t msgsize)
 {
-    assert (self);
-
-    zframe_t* frame = zframe_new(NULL, msgsize);
-    memset (zframe_data(frame), 0, zframe_size(frame));    
-
-    void* watch = zmq_stopwatch_start();
-    uint64_t cpu_start = s_cpu_now();
-    if (self->verbose) {
-        zsys_info("send: sending %d of size %ld", nmsgs, msgsize);
-    }
+    s_reset(self, "SEND", nmsgs, msgsize);
+    zframe_t* frame = s_frame_new(self);
+    s_start(self);
     for (int count = 0; count<nmsgs; ++count) {
-        int rc = zsock_send(self->sock, "if", count, frame);
-        assert(rc == 0);
+        s_send(self, count, frame);
+        self->totdata += zframe_size(frame);
     }
-    const int64_t elapsed = zmq_stopwatch_stop(watch);
-    const uint64_t cpu_us = s_cpu_now() - cpu_start;
-
     zframe_destroy(&frame);
-    
-    // SEND <nmsgs> <msgsize> <time_us> <cpu_us>
-    int rc = zsock_send(self->pipe, "si88", "SEND",
-                        nmsgs, msgsize, elapsed, cpu_us);
-
-    return rc;
+    return s_signal(self);
 }
 
 
 // Receive some data.  Return results down pipe.
 
 static int
-perf_recv (perf_t *self, int nmsgs)
+perf_recv (perf_t *self, int nmsgs, size_t msgsize)
 {
-    assert (self);
-
-    int64_t totdata=0;
-    void* watch = NULL;
-    uint64_t cpu_start = 0;
-
-    int rc=0, noos=0;
-    size_t last_size = 0;
+    s_reset (self, "RECV", nmsgs, msgsize);
     for (int count = 0; count < nmsgs; ++count) {
-        int got_count = 0;
-        zframe_t* frame = NULL;
-        rc = zsock_recv(self->sock, "if", &got_count, &frame);
-        assert (rc == 0);
-        if (count != got_count) {
-            ++noos;
+        if (count == 1) {           /* start after first message */
+            s_start(self);
         }
-        if (!watch) {           /* start after first message */
-            watch = zmq_stopwatch_start ();
-            cpu_start = s_cpu_now();
-        }
-
-        size_t siz = zframe_size(frame);
-        totdata += siz;
+        zframe_t* frame = s_recv(self, count);
+        if (!frame) { return -1; }
+        self->totdata += zframe_size(frame);
         zframe_destroy(&frame);        
-
-        if (last_size && last_size != siz) {
-            zsys_debug("recv: got size change %ld -> %ld", last_size, siz);
-        }
-        last_size = siz;
     }
-
-    const int64_t elapsed = zmq_stopwatch_stop(watch);
-    const uint64_t cpu_us = s_cpu_now() - cpu_start;
-
-    // RECV <nmsgs> <total_size> <time_us> <cpu_us> <noos>
-    rc = zsock_send(self->pipe, "si888i", "RECV",
-                    nmsgs, totdata, elapsed, cpu_us, noos);
-
-    return rc;
+    return s_signal(self);
 }
 
+
+static
+int pop_int(zmsg_t* msg)
+{
+    char *value = zmsg_popstr (msg);
+    const int ret = atoi(value);
+    free (value);
+    return ret;
+}
+
+static
+int64_t pop_long(zmsg_t *msg)
+{
+    char *value = zmsg_popstr (msg);
+    const int64_t ret = atol(value);
+    free (value);
+    return ret;
+}
 
 //  Here we handle incoming message from the node
 
@@ -442,48 +395,38 @@ perf_recv_api (perf_t *self)
         perf_connect (self, endpoint);
         free (endpoint);
     }
-    // ECHO <nmsgs> ->
-    // ECHO <nmsgs> <total_size> <time_us> <cpu_us>
+
+    // the four measurements of the apocalypse
+
+    // ECHO <nmsgs> <msgsize> ->
+    // ECHO <nmsgs> <total_size> <time_us> <cpu_us> <noos>
     else if (streq (command, "ECHO")) {
-        char *value = zmsg_popstr (request);
-        int nmsgs = atoi(value);
-        free (value);
-        //perf_echo_zmq (self, nmsgs);
-        perf_echo_czmq (self, nmsgs);
+        const int nmsgs = pop_int(request);
+        const size_t msgsize = pop_long(request);
+        perf_echo (self, nmsgs, msgsize);
     }
     // YODEL <nmsgs> <msgsize> ->
-    // YODEL <nmsgs> <msgsize> <time_us> <cpu_us> <noos>
+    // YODEL <nmsgs> <total_size> <time_us> <cpu_us> <noos>
     else if (streq (command, "YODEL")) {
-        char *value = zmsg_popstr (request);
-        const int nmsgs = atoi(value);
-        free (value);
-        value = zmsg_popstr (request);
-        const size_t msgsize = atol(value);
-        free (value);        
-        // about 50 us on localhost for kB or smaller
-        // perf_yodel_zmq (self, nmsgs, msgsize);
-        // about 10 us slower 
-        perf_yodel_czmq (self, nmsgs, msgsize);
+        const int nmsgs = pop_int(request);
+        const size_t msgsize = pop_long(request);
+        perf_yodel (self, nmsgs, msgsize);
     }
     // SEND <nmsgs> <msgsize> ->
-    // SEND <nmsgs> <msgsize> <time_us> <cpu_us>
+    // SEND <nmsgs> <total_size> <time_us> <cpu_us> <noos>
     else if (streq (command, "SEND")) {
-        char *value = zmsg_popstr (request);
-        int nmsgs = atoi(value);
-        free (value);
-        value = zmsg_popstr (request);
-        const size_t msgsize = atol(value);
-        free (value);
+        const int nmsgs = pop_int(request);
+        const size_t msgsize = pop_long(request);
         perf_send (self, nmsgs, msgsize);
     }
-    // RECV <nmsgs> ->
+    // RECV <nmsgs> <msgsize> ->
     // RECV <nmsgs> <total_size> <time_us> <cpu_us> <noos>
     else if (streq (command, "RECV")) {
-        char *value = zmsg_popstr (request);
-        int nmsgs = atoi(value);
-        free (value);
-        perf_recv (self, nmsgs);
+        const int nmsgs = pop_int(request);
+        const size_t msgsize = pop_long(request);
+        perf_recv (self, nmsgs, msgsize);
     }
+
     else if (streq (command, "VERBOSE")) {
         self->verbose = true;
     }
@@ -571,150 +514,87 @@ void s_conn(zactor_t* zp, const char* ep)
 }
 
 static
-void s_report(const char* what, int nmsgs, size_t totdat, int64_t time_us, uint64_t cpu_us)
+void s_report(const char* what, int nmsgs, size_t totdat, int64_t time_us, uint64_t cpu_us, int noos)
 {
     double time_s = 1e-6*time_us;
     double Gbps = totdat*8e-9/time_s;
     double kHz = 0.001*nmsgs/time_s;
     double lat_us = 1e6*time_s/nmsgs;
     double cpupc = (100.0 * cpu_us) / time_us;
-    zsys_info("%s: %d msgs (%.3f Gbps) in %.3fs, %.3f kHz, %.3f us/msg, %.3f %%CPU ",
-              what, nmsgs, Gbps, time_s, kHz, lat_us, cpupc);
+    zsys_info("%s: %d msgs (%.3f Gbps) in %.3fs, %.3f kHz, %.3f us/msg, %.3f %%CPU, %d ooo",
+              what, nmsgs, Gbps, time_s, kHz, lat_us, cpupc, noos);
 }
 
 static
-void s_echo_ini(zactor_t* zp, int nmsgs)
+void s_ini(zactor_t* zp, const char* measure, int nmsgs, size_t msgsize)
 {
-    int rc = zsock_send(zp, "si", "ECHO", nmsgs);
+    int rc = zsock_send(zp, "sii", measure, nmsgs, msgsize);
     assert(rc == 0);
 }
+
 static
-void s_echo_fin(zactor_t* zp, int nmsgs, size_t msgsize)
+void s_fin(zactor_t* zp, const char* measure, int nmsgs, size_t msgsize)
 {
     int got_nmsgs=0;
     int64_t got_time=0;
     uint64_t got_cpu=0;
     char* got_cmd=0;
     size_t got_size=0;
-    int rc = zsock_recv(zp, "si888", &got_cmd,
-                        &got_nmsgs, &got_size, &got_time, &got_cpu);
+    int got_noos = 0;
+    int rc = zsock_recv(zp, "si888i", &got_cmd,
+                        &got_nmsgs, &got_size, &got_time, &got_cpu, &got_noos);
     assert(rc == 0);
-    assert(streq(got_cmd, "ECHO"));
+    assert(streq(got_cmd, measure));
     free(got_cmd);
+    if (nmsgs != got_nmsgs) {
+        zsys_warning("%s: fin: message count mismatch: want:%d got:%d",
+                     measure, nmsgs, got_nmsgs);
+    }
     assert(nmsgs == got_nmsgs);
-    s_report("echo", got_nmsgs, got_size, got_time, got_cpu);
-}
-static
-void s_yodel(zactor_t* zp, int nmsgs, size_t msgsize)
-{
-    int rc = zsock_send(zp, "si8", "YODEL", nmsgs, msgsize);
-    assert(rc == 0);
-    int got_nmsgs=0, got_noos=0;
-    int64_t time_us=0, got_msgsize=0;
-    uint64_t cpu_us = 0;
-    char* got_cmd=0;
-    rc = zsock_recv(zp, "si888i", &got_cmd,
-                    &got_nmsgs, &got_msgsize, &time_us, &cpu_us, &got_noos);
-    assert(rc == 0);
-    assert(streq("YODEL", got_cmd));
-    free(got_cmd);
-    assert(got_nmsgs == nmsgs);
-    assert(got_msgsize == msgsize);
-    s_report("yodel", got_nmsgs, nmsgs*msgsize, time_us, cpu_us);
-    zsys_info("yodel: %d out-of-order", got_noos);
-}
-
-static
-void s_test_lat(int echo, int yodel, int nmsgs, size_t msgsize)
-{
-    zsys_info("test lat: socket types: [%d<->%d], nmsgs=%d msgsize=%ld",
-              echo, yodel, msgsize);
-    zactor_t *perf_echo = zactor_new (perf_actor, (void*)(size_t)echo);
-    assert (perf_echo);
-    zactor_t *perf_yodel = zactor_new (perf_actor, (void*)(size_t)yodel);
-    assert (perf_yodel);
-
-    char* ep = s_bind(perf_yodel);
-    s_conn(perf_echo, ep);
-    free (ep);
-
-    s_echo_ini(perf_echo, nmsgs);
-    s_yodel(perf_yodel, nmsgs, msgsize);
-    s_echo_fin(perf_echo, nmsgs, msgsize);
-
-    zactor_destroy (&perf_echo);
-    zactor_destroy (&perf_yodel);
-
-}
-
-static
-void s_send_ini(zactor_t* zp, int nmsgs, size_t msgsize)
-{
-    int rc = zsock_send(zp, "si8", "SEND", nmsgs, msgsize);
-    assert(rc == 0);
-}
-
-static
-void s_recv(zactor_t* zp, int nmsgs, size_t msgsize)
-{
-    int rc = zsock_send(zp, "si", "RECV", nmsgs);
-    assert(rc == 0);
-
-    char* got_cmd=0;
-    int got_nmsgs=0, noos=0;
-    size_t totdat=0;
-    int64_t time_us=0;
-    uint64_t cpu_us=0;
-    rc = zsock_recv(zp, "si88i", &got_cmd,
-                    &got_nmsgs, &totdat, &time_us, &cpu_us, &noos);
-    assert(rc == 0);
-    assert(streq(got_cmd, "RECV"));
-    free(got_cmd);
-    assert(got_nmsgs == nmsgs);
-    assert(totdat == nmsgs*msgsize);
+    size_t want_size = nmsgs*msgsize;
+    if (want_size != got_size) {
+        zsys_warning("%s: fin: data size mismatch: want:%ld got:%ld",
+                     measure, want_size, got_size);
+    }
     
-    s_report("recv", nmsgs, totdat, time_us, cpu_us);
-    zsys_info("recv: %d out-of-order", noos);
+    assert(want_size == got_size);
+    s_report(measure, got_nmsgs, got_size, got_time, got_cpu, got_noos);
 }
 
 static
-void s_send_fin(zactor_t* zp, int nmsgs, size_t msgsize)
+void s_bookends(const char* title,
+                const char* pitcher_name, int pitcher_socket, // connects
+                const char* catcher_name, int catcher_socket, // binds
+                int nmsgs, size_t msgsize, bool reverse)      // b<-->c
 {
-    // SEND <nmsgs> <msgsize> <time_us> <cpu_us>
-    char* got_cmd=0;
-    int got_nmsgs=0;
-    int64_t time_us=0;
-    uint64_t cpu_us=0;
-    size_t got_msgsize=0;
-    int rc = zsock_recv(zp, "si88", &got_cmd,
-                        &got_nmsgs, &got_msgsize, &time_us, &cpu_us);
-    assert(rc == 0);
-    assert(streq(got_cmd, "SEND"));
-    free(got_cmd);
-    assert(got_nmsgs == nmsgs);
-    assert(got_msgsize == msgsize);
-    s_report("send", nmsgs, nmsgs*msgsize, time_us, cpu_us);
-}
+    zsys_info("test %s: %s[%d]<-->%s[%d] %d of %ld",
+              title,
+              pitcher_name, pitcher_socket,
+              catcher_name, catcher_socket,
+              nmsgs, msgsize);
 
-static
-void s_test_thr(int src, int dst, int nmsgs, size_t msgsize)
-{
-    zsys_info("test thr: socket types: [%d->%d], nmsgs=%d msgsize=%ld",
-              src, dst, nmsgs, msgsize);
+    zactor_t *p = zactor_new (perf_actor, (void*)(size_t)pitcher_socket);
+    assert (p);
+    zactor_t *c = zactor_new (perf_actor, (void*)(size_t)catcher_socket);
+    assert (c);
+    
+    if (reverse) {
+        zactor_t* temp = p;
+        p = c;
+        c = temp;
+    }
 
-    zactor_t* perf_dst = zactor_new (perf_actor, (void*)(size_t)dst);
-    zactor_t* perf_src = zactor_new (perf_actor, (void*)(size_t)src);
-
-    char* ep = s_bind(perf_dst);
-    s_conn(perf_src, ep);
+    char* ep = s_bind(c);
+    s_conn(p, ep);
     free (ep);
 
-    s_send_ini(perf_src, nmsgs, msgsize);
-    s_recv(perf_dst, nmsgs, msgsize);
-    s_send_fin(perf_src, nmsgs, msgsize);
+    s_ini(p, pitcher_name, nmsgs, msgsize);
+    s_ini(c, catcher_name, nmsgs, msgsize);
+    s_fin(c, catcher_name, nmsgs, msgsize);
+    s_fin(p, pitcher_name, nmsgs, msgsize);
 
-    zactor_destroy (&perf_src);
-    zactor_destroy (&perf_dst);
+    zactor_destroy (&p);
+    zactor_destroy (&c);
 }
 
 
@@ -729,15 +609,13 @@ perf_test (bool verbose)
     // with valgrind they do not take forever.  10k for lat takes
     // about 15-30s, 2-3 s for thr.
     int nmsgs = 10000;
-    s_test_lat(ZMQ_REP, ZMQ_REQ, nmsgs, 1<<10);
-    s_test_lat(ZMQ_REP, ZMQ_REQ, nmsgs, 1<<16);
-    s_test_lat(ZMQ_ROUTER, ZMQ_REQ, nmsgs, 1<<10);
-    // fixme: this one hangs
-    // s_test_lat(ZMQ_REP, ZMQ_DEALER, 10000, 1<<10);
 
-    s_test_thr(ZMQ_PUSH, ZMQ_PULL, nmsgs, 1<<10);
-    // fixme: this one hangs
-    // s_test_thr(ZMQ_PUB, ZMQ_SUB, 10000, 1<<10);
+    s_bookends("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_REP, nmsgs, 1<<10, false);
+    s_bookends("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_REP, nmsgs, 1<<16, false);
+    s_bookends("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_ROUTER, nmsgs, 1<<10, false);
+    s_bookends("lat", "YODEL", ZMQ_DEALER, "ECHO", ZMQ_REP, nmsgs, 1<<10, false);
+
+    //s_bookends("thr", "SEND", ZMQ_PUSH, "RECV", ZMQ_PULL, nmsgs, 1<<10, false);
 
     //  @end
 

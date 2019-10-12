@@ -47,7 +47,10 @@ struct _client_t {
     zperf_msg_t *message;       //  Message in and out
     uint  unique_id;            //  Client identifier (for correlation purpose with the engine)
 
-    //  TODO: Add specific properties for your application
+    //  Specific properties for this application
+
+    // the perfs for this client.  The ident is the index.
+//    std::vector<zactor_t*> perfs;
 };
 
 //  Include the generated server engine
@@ -153,7 +156,13 @@ zperf_server_test (bool verbose)
 static void
 create_perf (client_t *self)
 {
-
+    // <field name = "mtype"    type = "string">Measurement type</field>
+    // <field name = "stype"    type = "string">Socket type</field>
+    // <field name = "ident"    type = "string">ID for the perf instance</field>
+    
+    const char* mtype = zperf_msg_mtype(self->message);
+    const char* stype = zperf_msg_mtype(self->message);
+    
 }
 
 
