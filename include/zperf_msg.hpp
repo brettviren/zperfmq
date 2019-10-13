@@ -34,26 +34,26 @@
     CREATE_OK -
         mtype               string      Measurement type
         stype               string      Socket type
-        ident               integer     ID for the perf instance
+        ident               number 4    ID for the perf instance
 
     SOCKET - Bind or connect the measurement socket to the address.
-        ident               integer     ID for the perf instance
+        ident               number 4    ID for the perf instance
         action              string      Bind or Connect
         endpoint            string      Address
 
     SOCKET_OK - Bind or connect the measurement socket to the address.
-        ident               integer     ID for the perf instance
+        ident               number 4    ID for the perf instance
         action              string      Bind or Connect
         endpoint            string      Address
 
     MEASURE - Initiate a measurement.
-        ident               integer     ID for the perf instance
+        ident               number 4    ID for the perf instance
         nmsgs               number 4    Number of messages
         msgsize             number 8    Message size in bytes
         timeout             number 4    Timeout in msec
 
     RESULT - The results of a measurement.
-        ident               integer     ID for the perf instance
+        ident               number 4    ID for the perf instance
         nmsgs               number 4    Number of messages
         msgsize             number 8    Message size in bytes
         timeout             number 4    Timeout in millisec
@@ -186,6 +186,11 @@ const char *
 void
     zperf_msg_set_stype (zperf_msg_t *self, const char *value);
 
+//  Get/set the ident field
+uint32_t
+    zperf_msg_ident (zperf_msg_t *self);
+void
+    zperf_msg_set_ident (zperf_msg_t *self, uint32_t ident);
 
 //  Get/set the action field
 const char *

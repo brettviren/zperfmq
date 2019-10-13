@@ -11,7 +11,7 @@
   This is a Zperf client.  It can be used to request a perf
   measurement from the Zperf server.
 
-  <include filename = "license.xml" />
+  <include filename = "../license.xml" />
 
   <state name = "start">
     <event name = "connect" next = "expect hello ok">

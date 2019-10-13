@@ -12,7 +12,7 @@
 
   It runs a perf actor on behalf of a client.
 
-  <include filename = "license.xml" />
+  <include filename = "../license.xml" />
 
   <state name = "start" inherit = "defaults">
     <event name = "HELLO" next = "connected">
