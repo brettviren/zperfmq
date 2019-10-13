@@ -20,7 +20,6 @@
     </event>
   </state>
   
-  
   <state name = "connected" inherit = "defaults">
     <event name = "CREATE" next = "have perf">
       <action name = "create perf" />
@@ -31,7 +30,6 @@
       <action name = "send" message = "PERF OK" />
     </event>
   </state>
-
 
   <state name = "have perf" inherit = "connected">
     <event name = "SOCKET">

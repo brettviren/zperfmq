@@ -1,0 +1,77 @@
+.template 0
+
+global.codec ?= xml.load_file (class.codec_file)
+global.server ?= xml.load_file (class.server_file)
+global.client ?= xml.load_file (class.client_file)
+
+function json_codec(codec)
+>    "messages": [
+    for my.codec.message
+    >  {
+    >    "name": "$(name)",
+    >    "desc":"$(string.trim (message.?''))",
+    >    "fields": [
+        for field
+    >     {"name":"$(name)", "type":"$(type)",
+          if defined(size)
+    >       "size":"$(size)",
+          endif
+    >    "desc":"$(string.trim (field.?''))",
+    >     },
+        endfor
+    >    ]
+    >  },
+    endfor
+>],
+endfunction
+
+
+function json_event (evt)
+> {
+>   "name":"$(my.evt.name)",
+if count (global.codec.message, name = -1.name) = 0
+>   "type":"internal",
+else
+>   "type":"message",
+endif
+>   "desc":"$(string.trim (field.?''))"
+> },
+endfunction
+
+function json_sm(sm)
+>    "states":[
+    for my.sm.state as state
+>      {"name":"$(state.name)",
+      if defined(state.string)
+>       "description":"$(state.string)",
+      endif
+>       "events":[
+      for state.event as evt
+        json_event(evt)
+      endfor
+>        ]},
+    endfor
+>    ],
+endfunction
+
+function generate_json
+    output "$(class.name).json"
+    >{
+    >  "codec":{
+    >    "name":"$(global.codec.name)",
+    json_codec(global.codec)
+    >   },
+    >  "server":{
+    >    "name":"$(global.server.name)",
+    json_sm(global.server)
+    >   },
+    >  "client":{
+    >    "name":"$(global.client.name)",
+    json_sm(global.client)
+    >   }
+    >}
+endfunction
+
+generate_json()
+
+.endtemplate

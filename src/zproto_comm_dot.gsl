@@ -1,0 +1,75 @@
+.template 0
+
+global.codec ?= xml.load_file (class.codec_file)
+global.server ?= xml.load_file (class.server_file)
+global.client ?= xml.load_file (class.client_file)
+
+
+function generate_event (name, event)
+
+        label = "<<table border=\"0\" cellborder=\"0\" cellpadding=\"3\" bgcolor=\"white\"><tr><td bgcolor=\"black\" align=\"center\" colspan=\"2\"><font color=\"white\">$(event.name)</font></td></tr>"
+
+        for event.action as action
+            label = label + "<tr><td align=\"left\" port=\"r3\">$(action.name)$(defined(action.message) ?? " (" + action.message + ")")</td></tr>"
+        endfor
+
+        label = label + "</table>>"
+
+        e_node = "e_$(my.name)_$(event.name)"
+        s_node = "s_$(my.name)_$(state.name)"
+
+        style = "solid"
+
+        > "$(e_node)" [shape = "Mrecord" style = $(style:) label = $(label)];
+        > "$(s_node)" -> "$(e_node)";
+        if defined (event.next)
+        > "s_$(my.name)_$(event.next)" -> "$(e_node)"[dir=back];
+        else
+        > "$(s_node)" -> "$(e_node)"[dir=back];
+        endif
+
+endfunction
+
+function generate_state_cluster (thing)
+    >  subgraph cluster_$(my.thing.name) {
+    >      label="$(my.thing.name)"
+    for my.thing.state as state
+        s_node = "s_$(my.thing.name)_$(state.name)"
+    >
+    >    "$(s_node)" [shape = "doublecircle", label="$(name)"];
+    endfor
+    for my.thing.state as state where defined (inherit)
+        s_node = "s_$(my.thing.name)_$(state.name)"
+        s_other_node = "s_$(my.thing.name)_$(state.inherit)"
+    >    "$(s_node)" -> "$(s_other_node)" [style=dotted,arrowhead=empty]
+    endfor
+
+    for my.thing.state as state
+        for state.event as event
+            generate_event (my.thing.name, event)
+        endfor
+    endfor
+
+    >  }
+
+endfunction
+
+function spewone (thing)
+    >here is something
+    >$(my.thing.name)
+    for my.thing.state as state
+    >    $(state.name)
+    endfor
+endfunction
+
+function generate_dot
+    output "$(class.name).dot"
+    >digraph "$(class.name)" {
+    generate_state_cluster (global.server)
+    generate_state_cluster (global.client)
+    generate_protocol 
+    >}
+endfunction
+
+generate_dot()
+.endtemplate

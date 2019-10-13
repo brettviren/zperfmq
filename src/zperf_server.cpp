@@ -74,6 +74,9 @@ struct _client_t {
 //  Include the generated server engine
 #include "zperf_server_engine.inc"
 
+static int
+    s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument);
+
 
 // Destroy an elelment of the perfs hash
 
@@ -98,6 +101,7 @@ server_initialize (server_t *self)
     //  Construct properties here
     self->perfinfos = zhashx_new();
     zhashx_set_destructor(self->perfinfos, (czmq_destructor*) s_perfinfo_destroy);
+
     return 0;
 }
 
@@ -152,38 +156,6 @@ client_terminate (client_t *self)
 }
 
 //  ---------------------------------------------------------------------------
-//  Selftest
-
-void
-zperf_server_test (bool verbose)
-{
-    printf (" * zperf_server: ");
-    if (verbose)
-        printf ("\n");
-
-    //  @selftest
-    zactor_t *server = zactor_new (zperf_server, (char*)"server");
-    if (verbose)
-        zstr_send (server, "VERBOSE");
-    zstr_sendx (server, "BIND", "ipc://@/zperf_server", NULL);
-
-    zsock_t *client = zsock_new (ZMQ_DEALER);
-    assert (client);
-    zsock_set_rcvtimeo (client, 2000);
-    zsock_connect (client, "ipc://@/zperf_server");
-
-    //  TODO: fill this out
-    zperf_msg_t *request = zperf_msg_new ();
-    zperf_msg_destroy (&request);
-
-    zsock_destroy (&client);
-    zactor_destroy (&server);
-    //  @end
-    printf ("OK\n");
-}
-
-
-//  ---------------------------------------------------------------------------
 //  create_perf
 //
 
@@ -195,8 +167,11 @@ create_perf (client_t *self)
     pi->actor = zactor_new (perf_actor, (void*)(size_t)pi->stype);
     assert(pi->actor);
 
+    zsock_t* actor_socket = zactor_sock(pi->actor);
+    engine_handle_socket (self->server, actor_socket, s_server_handle_perf);
+
     // this key lets us find the perfinfo from the actor pipe handler
-    void* key = (void*)zactor_sock(pi->actor);
+    void* key = (void*)actor_socket;
     int rc = zhashx_insert(self->server->perfinfos, key, pi);
     assert(rc);
 
@@ -363,6 +338,39 @@ s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
 static void
 signal_command_invalid (client_t *self)
 {
+    zperf_msg_set_status(self->message, ZPERF_MSG_COMMAND_INVALID);
+}
 
+
+
+//  ---------------------------------------------------------------------------
+//  Selftest
+
+void
+zperf_server_test (bool verbose)
+{
+    printf (" * zperf_server: ");
+    if (verbose)
+        printf ("\n");
+
+    //  @selftest
+    zactor_t *server = zactor_new (zperf_server, (char*)"server");
+    if (verbose)
+        zstr_send (server, "VERBOSE");
+    zstr_sendx (server, "BIND", "ipc://@/zperf_server", NULL);
+
+    zsock_t *client = zsock_new (ZMQ_DEALER);
+    assert (client);
+    zsock_set_rcvtimeo (client, 2000);
+    zsock_connect (client, "ipc://@/zperf_server");
+
+    //  TODO: fill this out
+    zperf_msg_t *request = zperf_msg_new ();
+    zperf_msg_destroy (&request);
+
+    zsock_destroy (&client);
+    zactor_destroy (&server);
+    //  @end
+    printf ("OK\n");
 }
 
