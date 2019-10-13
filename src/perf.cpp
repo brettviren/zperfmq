@@ -352,6 +352,7 @@ perf_recv (perf_t *self, int nmsgs, size_t msgsize)
 }
 
 
+// zsock_send() picture messages are really sprintf()'ed frames.
 static
 int pop_int(zmsg_t* msg)
 {

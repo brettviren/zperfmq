@@ -39,22 +39,30 @@
 
   <message name = "PERF-OK">
     <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
+  </message>
+
+  <message name = "INFO">
+    <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
     <field name = "stype"    type = "number" size = "4">Socket type</field>
-    <!-- fixme -->
-    <field name = "endpoints"    type = "list of string">Socket endpoints</field>
+    <field name = "endpoints" type= "hash">Hash of address to bind or connect</field>
+  </message>
+
+  <message name = "INFO-OK">
+    <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
+    <field name = "perfinfo" type = "string">Info about the perf instance</field>
   </message>
 
   <message name = "SOCKET">
     Bind or connect the measurement socket to the address.
     <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
-    <field name = "action"   type = "string">Bind or Connect</field>
+    <field name = "borc"   type = "string">Bind or Connect</field>
     <field name = "endpoint" type = "string">Address</field>
   </message>
 
   <message name = "SOCKET OK">
     Bind or connect the measurement socket to the address.
     <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
-    <field name = "action"   type = "string">Bind or Connect</field>
+    <field name = "borc"   type = "string">Bind or Connect</field>
     <field name = "endpoint" type = "string">Address</field>
   </message>
 

@@ -21,6 +21,18 @@
   </state>
   
   
+  <state name = "connected" inherit = "defaults">
+    <event name = "CREATE" next = "have perf">
+      <action name = "create perf" />
+      <action name = "send" message = "PERF OK" />
+    </event>
+    <event name = "LOOKUP" next = "have perf">
+      <action name = "lookup perf" />
+      <action name = "send" message = "PERF OK" />
+    </event>
+  </state>
+
+
   <state name = "have perf" inherit = "connected">
     <event name = "SOCKET">
       <action name = "lookup perf" />
@@ -29,7 +41,6 @@
     <!-- Break up response as perf may be busy with previous measure
          and the server must not wait. -->
     <event name = "socket return">
-      <action name = "handle endpoint response" />
       <action name = "send" message = "SOCKET-OK" />
     </event>
 
@@ -39,22 +50,13 @@
     </event>
     <!-- event emitted by perf pipe handler, which also readies message -->
     <event name = "measure return" >
-      <action name = "handle measure response" />
       <action name = "send" message = "RESULT" />
     </event>
 
-  </state>
-
-  <state name = "connected" inherit = "defaults">
-    <event name = "CREATE" next = "have perf">
-      <action name = "create perf" />
-      <action name = "clear endpoints" />
-      <action name = "send" message = "PERF OK" />
-    </event>
-    <event name = "LOOKUP" next = "have perf">
+    <event name = "INFO" next = "have perf">
       <action name = "lookup perf" />
-      <action name = "set endpoints" />
-      <action name = "send" message = "PERF OK" />
+      <action name = "set perf info" />
+      <action name = "send" message = "INFO OK" />
     </event>
   </state>
 

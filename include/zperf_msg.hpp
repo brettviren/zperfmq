@@ -35,17 +35,24 @@
 
     PERF_OK -
         ident               number 8    ID for the perf instance
+
+    INFO -
+        ident               number 8    ID for the perf instance
         stype               number 4    Socket type
-        endpoints           list of string  Socket endpoints
+        endpoints           hash        Hash of address to bind or connect
+
+    INFO_OK -
+        ident               number 8    ID for the perf instance
+        perfinfo            string      Info about the perf instance
 
     SOCKET - Bind or connect the measurement socket to the address.
         ident               number 8    ID for the perf instance
-        action              string      Bind or Connect
+        borc                string      Bind or Connect
         endpoint            string      Address
 
     SOCKET_OK - Bind or connect the measurement socket to the address.
         ident               number 8    ID for the perf instance
-        action              string      Bind or Connect
+        borc                string      Bind or Connect
         endpoint            string      Address
 
     MEASURE - Initiate a measurement.
@@ -100,15 +107,17 @@ or network recovery).
 #define ZPERF_MSG_CREATE                    3
 #define ZPERF_MSG_LOOKUP                    4
 #define ZPERF_MSG_PERF_OK                   5
-#define ZPERF_MSG_SOCKET                    6
-#define ZPERF_MSG_SOCKET_OK                 7
-#define ZPERF_MSG_MEASURE                   8
-#define ZPERF_MSG_RESULT                    9
-#define ZPERF_MSG_PING                      10
-#define ZPERF_MSG_PING_OK                   11
-#define ZPERF_MSG_GOODBYE                   12
-#define ZPERF_MSG_GOODBYE_OK                13
-#define ZPERF_MSG_ERROR                     14
+#define ZPERF_MSG_INFO                      6
+#define ZPERF_MSG_INFO_OK                   7
+#define ZPERF_MSG_SOCKET                    8
+#define ZPERF_MSG_SOCKET_OK                 9
+#define ZPERF_MSG_MEASURE                   10
+#define ZPERF_MSG_RESULT                    11
+#define ZPERF_MSG_PING                      12
+#define ZPERF_MSG_PING_OK                   13
+#define ZPERF_MSG_GOODBYE                   14
+#define ZPERF_MSG_GOODBYE_OK                15
+#define ZPERF_MSG_ERROR                     16
 
 #include <czmq.h>
 
@@ -191,12 +200,27 @@ uint64_t
 void
     zperf_msg_set_ident (zperf_msg_t *self, uint64_t ident);
 
-
-//  Get/set the action field
-const char *
-    zperf_msg_action (zperf_msg_t *self);
+//  Get a copy of the endpoints field
+zhash_t *
+    zperf_msg_endpoints (zperf_msg_t *self);
+//  Get the endpoints field and transfer ownership to caller
+zhash_t *
+    zperf_msg_get_endpoints (zperf_msg_t *self);
+//  Set the endpoints field, transferring ownership from caller
 void
-    zperf_msg_set_action (zperf_msg_t *self, const char *value);
+    zperf_msg_set_endpoints (zperf_msg_t *self, zhash_t **hash_p);
+
+//  Get/set the perfinfo field
+const char *
+    zperf_msg_perfinfo (zperf_msg_t *self);
+void
+    zperf_msg_set_perfinfo (zperf_msg_t *self, const char *value);
+
+//  Get/set the borc field
+const char *
+    zperf_msg_borc (zperf_msg_t *self);
+void
+    zperf_msg_set_borc (zperf_msg_t *self, const char *value);
 
 //  Get/set the endpoint field
 const char *
