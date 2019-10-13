@@ -25,25 +25,27 @@
 
 typedef enum {
     start_state = 1,
-    connected_state = 2,
-    defaults_state = 3,
+    have_perf_state = 2,
+    connected_state = 3,
+    defaults_state = 4,
     //  Internal state to mark zombie clients
-    zombie_state_ = 4
+    zombie_state_ = 5
 } state_t;
 
 typedef enum {
     NULL_event = 0,
     terminate_event = 1,
     hello_event = 2,
-    create_event = 3,
-    socket_event = 4,
-    socket_return_event = 5,
-    measure_event = 6,
-    measure_return_event = 7,
-    ping_event = 8,
-    goodbye_event = 9,
-    expired_event = 10,
-    exception_event = 11
+    socket_event = 3,
+    socket_return_event = 4,
+    measure_event = 5,
+    measure_return_event = 6,
+    create_event = 7,
+    lookup_event = 8,
+    ping_event = 9,
+    goodbye_event = 10,
+    expired_event = 11,
+    exception_event = 12
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -51,6 +53,7 @@ static const char *
 s_state_name [] = {
     "(NONE)",
     "start",
+    "have perf",
     "connected",
     "defaults"
 };
@@ -60,11 +63,12 @@ s_event_name [] = {
     "(NONE)",
     "terminate",
     "HELLO",
-    "CREATE",
     "SOCKET",
     "socket_return",
     "MEASURE",
     "measure_return",
+    "CREATE",
+    "LOOKUP",
     "PING",
     "GOODBYE",
     "expired",
@@ -138,17 +142,23 @@ static int
 static void
     s_client_finalize (s_client_t **self_p);
 static void
-    create_perf (client_t *self);
-static void
-    signal_command_invalid (client_t *self);
-static void
-    set_perf_by_ident (client_t *self);
+    lookup_perf (client_t *self);
 static void
     connect_or_bind (client_t *self);
 static void
-    set_perf_by_socket (client_t *self);
+    handle_endpoint_response (client_t *self);
 static void
     start_measure (client_t *self);
+static void
+    handle_measure_response (client_t *self);
+static void
+    create_perf (client_t *self);
+static void
+    clear_endpoints (client_t *self);
+static void
+    set_endpoints (client_t *self);
+static void
+    signal_command_invalid (client_t *self);
 
 //  ---------------------------------------------------------------------------
 //  These methods are an internal API for actions
@@ -382,6 +392,9 @@ s_protocol_event (zperf_msg_t *message)
         case ZPERF_MSG_CREATE:
             return create_event;
             break;
+        case ZPERF_MSG_LOOKUP:
+            return lookup_event;
+            break;
         case ZPERF_MSG_SOCKET:
             return socket_event;
             break;
@@ -498,12 +511,6 @@ s_client_execute (s_client_t *self, event_t event)
             case start_state:
                 if (self->event == hello_event) {
                     if (!self->exception) {
-                        //  create perf
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ create perf", self->log_prefix);
-                        create_perf (&self->client);
-                    }
-                    if (!self->exception) {
                         //  send HELLO_OK
                         if (self->server->verbose)
                             zsys_debug ("%s:         $ send HELLO_OK",
@@ -514,6 +521,36 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                     if (!self->exception)
                         self->state = connected_state;
+                }
+                else
+                if (self->event == ping_event) {
+                    if (!self->exception) {
+                        //  send PING_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send PING_OK",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_PING_OK);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == goodbye_event) {
+                    if (!self->exception) {
+                        //  send GOODBYE_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GOODBYE_OK",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_GOODBYE_OK);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->next_event = terminate_event;
+                    }
                 }
                 else
                 if (self->event == expired_event) {
@@ -559,34 +596,22 @@ s_client_execute (s_client_t *self, event_t event)
                         zperf_msg_set_routing_id (self->server->message, self->routing_id);
                         zperf_msg_send (self->server->message, self->server->router);
                     }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->next_event = terminate_event;
+                    }
                 }
                 break;
 
-            case connected_state:
-                if (self->event == create_event) {
-                    if (!self->exception) {
-                        //  create perf
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ create perf", self->log_prefix);
-                        create_perf (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  send CREATE_OK
-                        if (self->server->verbose)
-                            zsys_debug ("%s:         $ send CREATE_OK",
-                                self->log_prefix);
-                        zperf_msg_set_id (self->server->message, ZPERF_MSG_CREATE_OK);
-                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
-                        zperf_msg_send (self->server->message, self->server->router);
-                    }
-                }
-                else
+            case have_perf_state:
                 if (self->event == socket_event) {
                     if (!self->exception) {
-                        //  set perf by ident
+                        //  lookup perf
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ set perf by ident", self->log_prefix);
-                        set_perf_by_ident (&self->client);
+                            zsys_debug ("%s:         $ lookup perf", self->log_prefix);
+                        lookup_perf (&self->client);
                     }
                     if (!self->exception) {
                         //  connect or bind
@@ -598,10 +623,10 @@ s_client_execute (s_client_t *self, event_t event)
                 else
                 if (self->event == socket_return_event) {
                     if (!self->exception) {
-                        //  set perf by socket
+                        //  handle endpoint response
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ set perf by socket", self->log_prefix);
-                        set_perf_by_socket (&self->client);
+                            zsys_debug ("%s:         $ handle endpoint response", self->log_prefix);
+                        handle_endpoint_response (&self->client);
                     }
                     if (!self->exception) {
                         //  send SOCKET_OK
@@ -616,10 +641,10 @@ s_client_execute (s_client_t *self, event_t event)
                 else
                 if (self->event == measure_event) {
                     if (!self->exception) {
-                        //  set perf by ident
+                        //  lookup perf
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ set perf by ident", self->log_prefix);
-                        set_perf_by_ident (&self->client);
+                            zsys_debug ("%s:         $ lookup perf", self->log_prefix);
+                        lookup_perf (&self->client);
                     }
                     if (!self->exception) {
                         //  start measure
@@ -631,10 +656,10 @@ s_client_execute (s_client_t *self, event_t event)
                 else
                 if (self->event == measure_return_event) {
                     if (!self->exception) {
-                        //  set perf by socket
+                        //  handle measure response
                         if (self->server->verbose)
-                            zsys_debug ("%s:         $ set perf by socket", self->log_prefix);
-                        set_perf_by_socket (&self->client);
+                            zsys_debug ("%s:         $ handle measure response", self->log_prefix);
+                        handle_measure_response (&self->client);
                     }
                     if (!self->exception) {
                         //  send RESULT
@@ -645,6 +670,193 @@ s_client_execute (s_client_t *self, event_t event)
                         zperf_msg_set_routing_id (self->server->message, self->routing_id);
                         zperf_msg_send (self->server->message, self->server->router);
                     }
+                }
+                else
+                if (self->event == create_event) {
+                    if (!self->exception) {
+                        //  create perf
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ create perf", self->log_prefix);
+                        create_perf (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  clear endpoints
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ clear endpoints", self->log_prefix);
+                        clear_endpoints (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send PERF_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send PERF_OK",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_PERF_OK);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                    if (!self->exception)
+                        self->state = have_perf_state;
+                }
+                else
+                if (self->event == lookup_event) {
+                    if (!self->exception) {
+                        //  lookup perf
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ lookup perf", self->log_prefix);
+                        lookup_perf (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  set endpoints
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set endpoints", self->log_prefix);
+                        set_endpoints (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send PERF_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send PERF_OK",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_PERF_OK);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                    if (!self->exception)
+                        self->state = have_perf_state;
+                }
+                else
+                if (self->event == ping_event) {
+                    if (!self->exception) {
+                        //  send PING_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send PING_OK",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_PING_OK);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == goodbye_event) {
+                    if (!self->exception) {
+                        //  send GOODBYE_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GOODBYE_OK",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_GOODBYE_OK);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->next_event = terminate_event;
+                    }
+                }
+                else
+                if (self->event == expired_event) {
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->next_event = terminate_event;
+                    }
+                }
+                else
+                if (self->event == exception_event) {
+                    if (!self->exception) {
+                        //  send ERROR
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send ERROR",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_ERROR);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->next_event = terminate_event;
+                    }
+                }
+                else {
+                    //  Handle unexpected protocol events
+                    if (!self->exception) {
+                        //  signal command invalid
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ signal command invalid", self->log_prefix);
+                        signal_command_invalid (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send ERROR
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send ERROR",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_ERROR);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->next_event = terminate_event;
+                    }
+                }
+                break;
+
+            case connected_state:
+                if (self->event == create_event) {
+                    if (!self->exception) {
+                        //  create perf
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ create perf", self->log_prefix);
+                        create_perf (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  clear endpoints
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ clear endpoints", self->log_prefix);
+                        clear_endpoints (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send PERF_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send PERF_OK",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_PERF_OK);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                    if (!self->exception)
+                        self->state = have_perf_state;
+                }
+                else
+                if (self->event == lookup_event) {
+                    if (!self->exception) {
+                        //  lookup perf
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ lookup perf", self->log_prefix);
+                        lookup_perf (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  set endpoints
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ set endpoints", self->log_prefix);
+                        set_endpoints (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send PERF_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send PERF_OK",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_PERF_OK);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                    if (!self->exception)
+                        self->state = have_perf_state;
                 }
                 else
                 if (self->event == ping_event) {
@@ -730,6 +942,36 @@ s_client_execute (s_client_t *self, event_t event)
                 break;
 
             case defaults_state:
+                if (self->event == ping_event) {
+                    if (!self->exception) {
+                        //  send PING_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send PING_OK",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_PING_OK);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                }
+                else
+                if (self->event == goodbye_event) {
+                    if (!self->exception) {
+                        //  send GOODBYE_OK
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ send GOODBYE_OK",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->server->message, ZPERF_MSG_GOODBYE_OK);
+                        zperf_msg_set_routing_id (self->server->message, self->routing_id);
+                        zperf_msg_send (self->server->message, self->server->router);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->next_event = terminate_event;
+                    }
+                }
+                else
                 if (self->event == expired_event) {
                     if (!self->exception) {
                         //  terminate

@@ -28,32 +28,36 @@
         nickname            string      Client nickname
 
     CREATE -
-        mtype               string      Measurement type
-        stype               string      Socket type
+        stype               number 4    Socket type
 
-    CREATE_OK -
-        mtype               string      Measurement type
-        stype               string      Socket type
-        ident               number 4    ID for the perf instance
+    LOOKUP -
+        ident               number 8    ID for the perf instance
+
+    PERF_OK -
+        ident               number 8    ID for the perf instance
+        stype               number 4    Socket type
+        endpoints           list of string  Socket endpoints
 
     SOCKET - Bind or connect the measurement socket to the address.
-        ident               number 4    ID for the perf instance
+        ident               number 8    ID for the perf instance
         action              string      Bind or Connect
         endpoint            string      Address
 
     SOCKET_OK - Bind or connect the measurement socket to the address.
-        ident               number 4    ID for the perf instance
+        ident               number 8    ID for the perf instance
         action              string      Bind or Connect
         endpoint            string      Address
 
     MEASURE - Initiate a measurement.
-        ident               number 4    ID for the perf instance
+        ident               number 8    ID for the perf instance
+        measure             string      Measurement type
         nmsgs               number 4    Number of messages
         msgsize             number 8    Message size in bytes
         timeout             number 4    Timeout in msec
 
     RESULT - The results of a measurement.
-        ident               number 4    ID for the perf instance
+        ident               number 8    ID for the perf instance
+        measure             string      Measurement type
         nmsgs               number 4    Number of messages
         msgsize             number 8    Message size in bytes
         timeout             number 4    Timeout in millisec
@@ -94,16 +98,17 @@ or network recovery).
 #define ZPERF_MSG_HELLO                     1
 #define ZPERF_MSG_HELLO_OK                  2
 #define ZPERF_MSG_CREATE                    3
-#define ZPERF_MSG_CREATE_OK                 4
-#define ZPERF_MSG_SOCKET                    5
-#define ZPERF_MSG_SOCKET_OK                 6
-#define ZPERF_MSG_MEASURE                   7
-#define ZPERF_MSG_RESULT                    8
-#define ZPERF_MSG_PING                      9
-#define ZPERF_MSG_PING_OK                   10
-#define ZPERF_MSG_GOODBYE                   11
-#define ZPERF_MSG_GOODBYE_OK                12
-#define ZPERF_MSG_ERROR                     13
+#define ZPERF_MSG_LOOKUP                    4
+#define ZPERF_MSG_PERF_OK                   5
+#define ZPERF_MSG_SOCKET                    6
+#define ZPERF_MSG_SOCKET_OK                 7
+#define ZPERF_MSG_MEASURE                   8
+#define ZPERF_MSG_RESULT                    9
+#define ZPERF_MSG_PING                      10
+#define ZPERF_MSG_PING_OK                   11
+#define ZPERF_MSG_GOODBYE                   12
+#define ZPERF_MSG_GOODBYE_OK                13
+#define ZPERF_MSG_ERROR                     14
 
 #include <czmq.h>
 
@@ -174,23 +179,18 @@ const char *
 void
     zperf_msg_set_nickname (zperf_msg_t *self, const char *value);
 
-//  Get/set the mtype field
-const char *
-    zperf_msg_mtype (zperf_msg_t *self);
-void
-    zperf_msg_set_mtype (zperf_msg_t *self, const char *value);
-
 //  Get/set the stype field
-const char *
+uint32_t
     zperf_msg_stype (zperf_msg_t *self);
 void
-    zperf_msg_set_stype (zperf_msg_t *self, const char *value);
+    zperf_msg_set_stype (zperf_msg_t *self, uint32_t stype);
 
 //  Get/set the ident field
-uint32_t
+uint64_t
     zperf_msg_ident (zperf_msg_t *self);
 void
-    zperf_msg_set_ident (zperf_msg_t *self, uint32_t ident);
+    zperf_msg_set_ident (zperf_msg_t *self, uint64_t ident);
+
 
 //  Get/set the action field
 const char *
@@ -203,6 +203,12 @@ const char *
     zperf_msg_endpoint (zperf_msg_t *self);
 void
     zperf_msg_set_endpoint (zperf_msg_t *self, const char *value);
+
+//  Get/set the measure field
+const char *
+    zperf_msg_measure (zperf_msg_t *self);
+void
+    zperf_msg_set_measure (zperf_msg_t *self, const char *value);
 
 //  Get/set the nmsgs field
 uint32_t

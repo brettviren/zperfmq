@@ -1,8 +1,9 @@
 The following ABNF grammar defines the The Zperf Protocol:
 
-    hydra = hello *( socket | create | measure | heartbeat ) [ goodbye ]
+    zperf = hello *( create | lookup | socket | measure | heartbeat ) [ goodbye ]
     hello   = C:HELLO   ( S:HELLO-OK   / S:INVALID / S:FAILED )
-    create  = C:CREATE  ( S:CREATE-OK  / S:INVALID / S:FAILED )
+    create  = C:CREATE  ( S:PERF-OK  / S:INVALID / S:FAILED )
+    lookup  = C:LOOKUP  ( S:PERF-OK  / S:INVALID / S:FAILED )
     socket  = C:SOCKET  ( S:SOCKET-OK  / S:INVALID / S:FAILED )
     measure = C:MEASURE ( S:RESULT     / S:INVALID / S:FAILED )
     heartbeat = C:PING S:PING-OK
@@ -21,43 +22,49 @@ The following ABNF grammar defines the The Zperf Protocol:
 
     ;  No description
 
-    CREATE          = signature %d3 mtype stype
-    mtype           = string                ; Measurement type
-    stype           = string                ; Socket type
+    CREATE          = signature %d3 stype
+    stype           = number-4              ; Socket type
 
     ;  No description
 
-    CREATE-OK       = signature %d4 mtype stype ident
-    mtype           = string                ; Measurement type
-    stype           = string                ; Socket type
-    ident           = number-4              ; ID for the perf instance
+    LOOKUP          = signature %d4 ident
+    ident           = number-8              ; ID for the perf instance
+
+    ;  No description
+
+    PERF-OK         = signature %d5 ident stype endpoints
+    ident           = number-8              ; ID for the perf instance
+    stype           = number-4              ; Socket type
+    endpoints       = list of string        ; Socket endpoints
 
     ;  Bind or connect the measurement socket to the address.
 
-    SOCKET          = signature %d5 ident action endpoint
-    ident           = number-4              ; ID for the perf instance
+    SOCKET          = signature %d6 ident action endpoint
+    ident           = number-8              ; ID for the perf instance
     action          = string                ; Bind or Connect
     endpoint        = string                ; Address
 
     ;  Bind or connect the measurement socket to the address.
 
-    SOCKET-OK       = signature %d6 ident action endpoint
-    ident           = number-4              ; ID for the perf instance
+    SOCKET-OK       = signature %d7 ident action endpoint
+    ident           = number-8              ; ID for the perf instance
     action          = string                ; Bind or Connect
     endpoint        = string                ; Address
 
     ;  Initiate a measurement.
 
-    MEASURE         = signature %d7 ident nmsgs msgsize timeout
-    ident           = number-4              ; ID for the perf instance
+    MEASURE         = signature %d8 ident measure nmsgs msgsize timeout
+    ident           = number-8              ; ID for the perf instance
+    measure         = string                ; Measurement type
     nmsgs           = number-4              ; Number of messages
     msgsize         = number-8              ; Message size in bytes
     timeout         = number-4              ; Timeout in msec
 
     ;  The results of a measurement.
 
-    RESULT          = signature %d8 ident nmsgs msgsize timeout time_us cpu_us noos nbytes
-    ident           = number-4              ; ID for the perf instance
+    RESULT          = signature %d9 ident measure nmsgs msgsize timeout time_us cpu_us noos nbytes
+    ident           = number-8              ; ID for the perf instance
+    measure         = string                ; Measurement type
     nmsgs           = number-4              ; Number of messages
     msgsize         = number-8              ; Message size in bytes
     timeout         = number-4              ; Timeout in millisec
@@ -70,23 +77,23 @@ The following ABNF grammar defines the The Zperf Protocol:
     ;  status COMMAND-INVALID if the client is not recognized (e.g. after a
     ;  server restart or network recovery).
 
-    PING            = signature %d9
+    PING            = signature %d10
 
     ;  Server replies to a client ping.
 
-    PING-OK         = signature %d10
+    PING-OK         = signature %d11
 
     ;  Close the connection politely
 
-    GOODBYE         = signature %d11
+    GOODBYE         = signature %d12
 
     ;  Handshake a connection close
 
-    GOODBYE-OK      = signature %d12
+    GOODBYE-OK      = signature %d13
 
     ;  Command failed for some specific reason
 
-    ERROR           = signature %d13 status reason
+    ERROR           = signature %d14 status reason
     status          = number-2              ; 3-digit status code
     reason          = string                ; Printable explanation
 

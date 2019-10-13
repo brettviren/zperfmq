@@ -27,13 +27,21 @@ typedef struct _client_t client_t;
 //  This structure defines the context for each running server. Store
 //  whatever properties and structures you need for the server.
 
+
 struct _server_t {
     //  These properties must always be present in the server_t
     //  and are set by the generated engine; do not modify them!
     zsock_t *pipe;              //  Actor pipe back to caller
     zconfig_t *config;          //  Current loaded configuration
 
-    //  TODO: Add any properties you need here
+    // The perfs this server manages.  The key is simply the perf
+    // actor memory address and that is returend to the creating
+    // client as the "ident".  Any client knowing it may also access
+    // the perf.
+    // 
+    // FIXME: Currently nothing destroys these other than death of the
+    // server.
+    zhashx_t* perfs;
 };
 
 //  ---------------------------------------------------------------------------
@@ -49,12 +57,27 @@ struct _client_t {
 
     //  Specific properties for this application
 
-    // the perfs for this client.  The ident is the index.
-//    std::vector<zactor_t*> perfs;
+    // the current perf 
+    zactor_t* perf;
 };
+
 
 //  Include the generated server engine
 #include "zperf_server_engine.inc"
+
+
+// Destroy an elelment of the perfs hash
+
+static void
+s_perf_destroy(zactor_t** self_p)
+{
+    assert (self_p);
+    if (! *self_p) { return;}
+    zactor_t* self = self_p;
+    zactor_destroy(&self);
+    *self_p = 0;
+}
+
 
 //  Allocate properties and structures for a new server instance.
 //  Return 0 if OK, or -1 if there was an error.
@@ -62,8 +85,9 @@ struct _client_t {
 static int
 server_initialize (server_t *self)
 {
-    ZPROTO_UNUSED(self);
     //  Construct properties here
+    self->perfs = zhashx_new();
+    zhashx_set_destructor(self->perfs, (czmq_destructor*) s_perf_destroy);
     return 0;
 }
 
@@ -72,8 +96,8 @@ server_initialize (server_t *self)
 static void
 server_terminate (server_t *self)
 {
-    ZPROTO_UNUSED(self);
     //  Destroy properties here
+    zhashx_destroy(&self->perfs);
 }
 
 //  Process server API method, return reply message if any
@@ -156,13 +180,16 @@ zperf_server_test (bool verbose)
 static void
 create_perf (client_t *self)
 {
-    // <field name = "mtype"    type = "string">Measurement type</field>
-    // <field name = "stype"    type = "string">Socket type</field>
-    // <field name = "ident"    type = "string">ID for the perf instance</field>
-    
-    const char* mtype = zperf_msg_mtype(self->message);
-    const char* stype = zperf_msg_mtype(self->message);
-    
+    int socket_type = zperf_msg_stype(self->message);
+    zactor_t *perf = zactor_new (perf_actor, (void*)(size_t)socket_type);
+    assert(perf);
+
+    uint64_t ident = perf xor self;
+
+    int rc = zhashx_insert((void*)ident, perf);
+    assert(rc);
+
+    zperf_msg_set_ident(self->message, ident);
 }
 
 
@@ -216,6 +243,61 @@ set_perf_by_socket (client_t *self)
 
 static void
 start_measure (client_t *self)
+{
+
+}
+
+
+//  ---------------------------------------------------------------------------
+//  clear_endpoints
+//
+
+static void
+clear_endpoints (client_t *self)
+{
+
+}
+
+
+//  ---------------------------------------------------------------------------
+//  lookup_perf
+//
+
+static void
+lookup_perf (client_t *self)
+{
+
+}
+
+
+//  ---------------------------------------------------------------------------
+//  set_endpoints
+//
+
+static void
+set_endpoints (client_t *self)
+{
+
+}
+
+
+//  ---------------------------------------------------------------------------
+//  handle_endpoint_response
+//
+
+static void
+handle_endpoint_response (client_t *self)
+{
+
+}
+
+
+//  ---------------------------------------------------------------------------
+//  handle_measure_response
+//
+
+static void
+handle_measure_response (client_t *self)
 {
 
 }

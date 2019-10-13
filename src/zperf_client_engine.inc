@@ -72,7 +72,7 @@ s_event_name [] = {
     "create_perf",
     "set_socket",
     "set_measurement",
-    "CREATE_OK",
+    "create_ok",
     "SOCKET_OK",
     "RESULT",
     "GOODBYE_OK",
@@ -377,9 +377,6 @@ s_protocol_event (s_client_t *self, zperf_msg_t *message)
     switch (zperf_msg_id (message)) {
         case ZPERF_MSG_HELLO_OK:
             return hello_ok_event;
-            break;
-        case ZPERF_MSG_CREATE_OK:
-            return create_ok_event;
             break;
         case ZPERF_MSG_SOCKET_OK:
             return socket_ok_event;

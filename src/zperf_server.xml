@@ -16,42 +16,49 @@
 
   <state name = "start" inherit = "defaults">
     <event name = "HELLO" next = "connected">
-      <action name = "create perf" />
       <action name = "send" message = "HELLO OK" />
     </event>
-    <event name = "*">
-      <action name = "signal command invalid" />
-      <action name = "send" message = "ERROR" />
-    </event>
   </state>
-
   
-  <state name = "connected" inherit = "defaults">
-    <event name = "CREATE">
-      <action name = "create perf" />
-      <action name = "send" message = "CREATE OK" />
-    </event>
-
+  
+  <state name = "have perf" inherit = "connected">
     <event name = "SOCKET">
-      <action name = "set perf by ident" />
+      <action name = "lookup perf" />
       <action name = "connect or bind" />
     </event>
-    <!-- event emitted by perf pipe handler, which also readies message -->
+    <!-- Break up response as perf may be busy with previous measure
+         and the server must not wait. -->
     <event name = "socket return">
-      <action name = "set perf by socket" />
+      <action name = "handle endpoint response" />
       <action name = "send" message = "SOCKET-OK" />
     </event>
 
     <event name = "MEASURE">
-      <action name = "set perf by ident" />
+      <action name = "lookup perf" />
       <action name = "start measure" />
     </event>
     <!-- event emitted by perf pipe handler, which also readies message -->
     <event name = "measure return" >
-      <action name = "set perf by socket" />
+      <action name = "handle measure response" />
       <action name = "send" message = "RESULT" />
     </event>
 
+  </state>
+
+  <state name = "connected" inherit = "defaults">
+    <event name = "CREATE" next = "have perf">
+      <action name = "create perf" />
+      <action name = "clear endpoints" />
+      <action name = "send" message = "PERF OK" />
+    </event>
+    <event name = "LOOKUP" next = "have perf">
+      <action name = "lookup perf" />
+      <action name = "set endpoints" />
+      <action name = "send" message = "PERF OK" />
+    </event>
+  </state>
+
+  <state name = "defaults">
     <event name = "PING">
       <action name = "send" message = "PING OK" />
     </event>
@@ -60,11 +67,6 @@
       <action name = "send" message = "GOODBYE OK" />
       <action name = "terminate" />
     </event>
-
-  </state>
-
-
-  <state name = "defaults">
     <!-- This built-in event hits on a client timeout -->
     <event name = "expired">
       <action name = "terminate" />
