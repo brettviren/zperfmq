@@ -150,6 +150,8 @@ static void
 static void
     connect_or_bind (client_t *self);
 static void
+    borc_return (client_t *self);
+static void
     start_measure (client_t *self);
 static void
     set_perf_info (client_t *self);
@@ -744,6 +746,12 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == socket_return_event) {
+                    if (!self->exception) {
+                        //  borc return
+                        if (self->server->verbose)
+                            zsys_debug ("%s:         $ borc return", self->log_prefix);
+                        borc_return (&self->client);
+                    }
                     if (!self->exception) {
                         //  send SOCKET_OK
                         if (self->server->verbose)

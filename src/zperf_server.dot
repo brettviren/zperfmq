@@ -1,1 +1,53 @@
 ## Automatically generated from zperf_server.xml by gsl
+digraph "zperf_server" {
+ "start" -> "defaults" [style=dotted,arrowhead=empty]
+ "connected" -> "defaults" [style=dotted,arrowhead=empty]
+ "have perf" -> "connected" [style=dotted,arrowhead=empty]
+
+ "start" [shape = "doublecircle"];
+ "start hello" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">hello</font></td></tr><tr><td align="left" port="r3">send (hello ok)</td></tr></table>>];
+ "start" -> "start hello";
+ "start hello" -> "connected";
+
+ "connected" [shape = "doublecircle"];
+ "connected create" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">create</font></td></tr><tr><td align="left" port="r3">create perf</td></tr><tr><td align="left" port="r3">send (perf ok)</td></tr></table>>];
+ "connected" -> "connected create";
+ "connected create" -> "have perf";
+ "connected lookup" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">lookup</font></td></tr><tr><td align="left" port="r3">lookup perf</td></tr><tr><td align="left" port="r3">send (perf ok)</td></tr></table>>];
+ "connected" -> "connected lookup";
+ "connected lookup" -> "have perf";
+
+ "have perf" [shape = "doublecircle"];
+ "have perf socket" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">socket</font></td></tr><tr><td align="left" port="r3">lookup perf</td></tr><tr><td align="left" port="r3">connect or bind</td></tr></table>>];
+ "have perf" -> "have perf socket";
+ "have perf socket" -> "have perf";
+ "have perf socket return" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">socket return</font></td></tr><tr><td align="left" port="r3">borc return</td></tr><tr><td align="left" port="r3">send (socket ok)</td></tr></table>>];
+ "have perf" -> "have perf socket return";
+ "have perf socket return" -> "have perf";
+ "have perf measure" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">measure</font></td></tr><tr><td align="left" port="r3">lookup perf</td></tr><tr><td align="left" port="r3">start measure</td></tr></table>>];
+ "have perf" -> "have perf measure";
+ "have perf measure" -> "have perf";
+ "have perf measure return" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">measure return</font></td></tr><tr><td align="left" port="r3">send (result)</td></tr></table>>];
+ "have perf" -> "have perf measure return";
+ "have perf measure return" -> "have perf";
+ "have perf info" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">info</font></td></tr><tr><td align="left" port="r3">lookup perf</td></tr><tr><td align="left" port="r3">set perf info</td></tr><tr><td align="left" port="r3">send (info ok)</td></tr></table>>];
+ "have perf" -> "have perf info";
+ "have perf info" -> "have perf";
+
+ "defaults" [shape = "doublecircle"];
+ "defaults ping" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ping</font></td></tr><tr><td align="left" port="r3">send (ping ok)</td></tr></table>>];
+ "defaults" -> "defaults ping";
+ "defaults ping" -> "defaults";
+ "defaults goodbye" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">goodbye</font></td></tr><tr><td align="left" port="r3">send (goodbye ok)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults" -> "defaults goodbye";
+ "defaults goodbye" -> "defaults";
+ "defaults expired" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">expired</font></td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults" -> "defaults expired";
+ "defaults expired" -> "defaults";
+ "defaults exception" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">exception</font></td></tr><tr><td align="left" port="r3">send (error)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults" -> "defaults exception";
+ "defaults exception" -> "defaults";
+ "defaults *" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr><tr><td align="left" port="r3">signal command invalid</td></tr><tr><td align="left" port="r3">send (error)</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults" -> "defaults *";
+ "defaults *" -> "defaults";
+}

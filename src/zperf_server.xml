@@ -39,6 +39,7 @@
     <!-- Break up response as perf may be busy with previous measure
          and the server must not wait. -->
     <event name = "socket return">
+      <action name = "borc return" />
       <action name = "send" message = "SOCKET OK" />
     </event>
 
