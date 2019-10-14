@@ -39,7 +39,7 @@
     <!-- Break up response as perf may be busy with previous measure
          and the server must not wait. -->
     <event name = "socket return">
-      <action name = "send" message = "SOCKET-OK" />
+      <action name = "send" message = "SOCKET OK" />
     </event>
 
     <event name = "MEASURE">

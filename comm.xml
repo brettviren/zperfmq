@@ -1,0 +1,11 @@
+<class
+    name="zperf_protocol"
+    title = "Zperf Protocl"
+    script = "src/zproto_comm_dot"
+    server_file = "src/zperf_server.xml"
+    codec_file = "src/zperf_msg.xml"
+    client_file = "src/zperf_client.xml"
+    >
+
+
+</class>

@@ -64,7 +64,7 @@ struct _client_t {
     //  and are set by the generated engine; do not modify them!
     server_t *server;           //  Reference to parent server
     zperf_msg_t *message;       //  Message in and out
-    uint  unique_id;            //  Client identifier (for correlation purpose with the engine)
+    uint  unique_id;            //  Client identifier 
 
     //  Specific properties for this application
 
@@ -100,7 +100,8 @@ server_initialize (server_t *self)
 {
     //  Construct properties here
     self->perfinfos = zhashx_new();
-    zhashx_set_destructor(self->perfinfos, (czmq_destructor*) s_perfinfo_destroy);
+    zhashx_set_destructor(self->perfinfos,
+                          (czmq_destructor*) s_perfinfo_destroy);
 
     return 0;
 }
@@ -173,7 +174,7 @@ create_perf (client_t *self)
     // this key lets us find the perfinfo from the actor pipe handler
     void* key = (void*)actor_socket;
     int rc = zhashx_insert(self->server->perfinfos, key, pi);
-    assert(rc);
+    assert(rc == 0);
 
     self->server->perfinfo = pi;
 
@@ -191,7 +192,8 @@ lookup_perf (client_t *self)
 {
     const uint64_t ident = zperf_msg_ident(self->message);
 
-    perfinfo_t* pi = (perfinfo_t*)zhashx_lookup(self->server->perfinfos, (void*)ident);
+    perfinfo_t* pi = (perfinfo_t*)zhashx_lookup(self->server->perfinfos,
+                                                (void*)ident);
     if (!pi) {
         // signal failure
         return;
@@ -366,6 +368,21 @@ zperf_server_test (bool verbose)
 
     //  TODO: fill this out
     zperf_msg_t *request = zperf_msg_new ();
+
+    zperf_msg_set_id(request, ZPERF_MSG_HELLO);
+    zperf_msg_set_nickname(request, "testclient");
+    zperf_msg_send(request, client);
+    zperf_msg_recv(request, client);
+    assert(zperf_msg_id(request) == ZPERF_MSG_HELLO_OK);
+
+    zperf_msg_set_id(request, ZPERF_MSG_CREATE);
+    zperf_msg_set_stype(request, ZMQ_REP);
+    zperf_msg_send(request, client);
+    zperf_msg_recv(request, client);
+    assert(zperf_msg_id(request) == ZPERF_MSG_PERF_OK);
+    assert(zperf_msg_ident(request) > 0);
+    zsys_debug("ident: 0x%lX", zperf_msg_ident(request));
+
     zperf_msg_destroy (&request);
 
     zsock_destroy (&client);

@@ -146,3 +146,19 @@ The Zperf server accepts requests from the client for creation of one or more ~p
 This is an overblown solution that ~bash~ and ~ssh~ can also solve, but it gives a reason to learn how to use ~zproto~.
 
 
+
+* Side effects
+
+As I started to implement ~zperf_server~ I found myself constantly
+bouncing around to several different files as I went from contexts for
+server state machine, msg schema, action implementation.  I wanted to
+have all these in one diagram.  So I did some work on a better ~zproto~
+dot generator.  It's general and can be put into ~zeromq/zproto~ for for
+now it's here
+
+- [[file:src/zproto_comm_dot.gsl]] the GSL file
+- [[file:comm.xml]] the driver file, also uses ~src/zperf_*.xml~
+
+Example result:
+
+ [[file:zperf_protocol.svg]]
