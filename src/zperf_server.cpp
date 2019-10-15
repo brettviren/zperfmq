@@ -176,7 +176,7 @@ create_perf (client_t *self)
 
     // this key lets us find the perfinfo from the actor pipe handler
     void* key = (void*)actor_socket;
-    zsys_debug("insert 0x%lX", key);
+    // zsys_debug("insert 0x%lX", key);
     int rc = zhashx_insert(self->server->perfinfos, key, pi);
     assert(rc == 0);
 
@@ -198,7 +198,7 @@ lookup_perf (client_t *self)
     const uint64_t ident = zperf_msg_ident(self->message);
 
     const void* key = (const void*)ident;
-    zsys_debug("lookup 0x%lX", key);
+    // zsys_debug("lookup 0x%lX", key);
     perfinfo_t* pi = (perfinfo_t*)zhashx_lookup(self->server->perfinfos, key);
     if (!pi) {
         zsys_error("Failed to find perfinfo for 0x%lX", ident);
@@ -242,13 +242,12 @@ connect_or_bind (client_t *self)
     perfinfo_t* pi = self->server->perfinfo;
     assert(pi);
 
-    zsys_debug("%s %s", borc, ep);
+    // zsys_debug("%s %s", borc, ep);
     int rc = zsock_send(pi->actor, "ss", borc, ep);
     assert(rc == 0);
 
     zlist_push(pi->waiting, (void*)self);
-    zsys_debug("%ld waiting", zlist_size(pi->waiting));
-    // engine_set_next_event (self, ..._event);
+    // zsys_debug("%ld waiting", zlist_size(pi->waiting));
 }
 
 
@@ -266,7 +265,7 @@ start_measure (client_t *self)
         || streq(measure, "SEND") || streq(measure, "RECV");
     if (!ok) {
         zsys_debug("got unknown measure: %s", measure);
-        // fixme: signal error
+        engine_set_exception(self, exception_event);
         return;
     }
 
@@ -342,7 +341,7 @@ s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
             || streq(command, "SEND") || streq(command, "RECV")) {
         zperf_msg_set_id(client->message, ZPERF_MSG_RESULT);
         zperf_msg_set_nmsgs(client->message, pop_int(request));
-        zperf_msg_set_msgsize(client->message, pop_long(request));
+        zperf_msg_set_nbytes(client->message, pop_long(request));
         zperf_msg_set_time_us(client->message, pop_long(request));
         zperf_msg_set_cpu_us(client->message, pop_long(request));
         zperf_msg_set_noos(client->message, pop_int(request));
@@ -368,8 +367,10 @@ s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
 static void
 borc_return (client_t *self)
 {
-    zsys_debug("borc");
-    zperf_msg_print(self->message);
+    if (engine_verbose(self->server)) {
+        zsys_debug("borc");
+        zperf_msg_print(self->message);
+    }
 }
 
 //  ---------------------------------------------------------------------------
@@ -424,26 +425,32 @@ zperf_server_test (bool verbose)
     assert(rc == 0);
     assert(zperf_msg_id(request) == ZPERF_MSG_PERF_OK);
     assert(zperf_msg_ident(request) > 0);
-    zsys_debug("ident: 0x%lX", zperf_msg_ident(request));
+    if (verbose) {
+        zsys_debug("got ident: 0x%lX", zperf_msg_ident(request));
+    }
     // note: just leave ident untouched for subsequent send/recv
 
     // bind
     zperf_msg_set_id(request, ZPERF_MSG_SOCKET);
     zperf_msg_set_borc(request, "BIND");
     zperf_msg_set_endpoint(request, "tcp://127.0.0.1:*");
-    zsys_debug("send");
-    zperf_msg_print(request);
+    if (verbose) {
+        zperf_msg_print(request);
+    }
     rc = zperf_msg_send(request, client);
     assert(rc == 0);
-    zsys_debug("receiving response");
     rc = zperf_msg_recv(request, client);
-    zsys_debug("SOCKET rc = %d, back = %d",rc, zperf_msg_id(request));
+    if (verbose) {
+        zsys_debug("SOCKET rc = %d, back = %d",rc, zperf_msg_id(request));
+    }
     assert(rc == 0);
     assert(zperf_msg_id(request) == ZPERF_MSG_SOCKET_OK);
     assert(zperf_msg_ident(request) > 0);
     const char* endpoint = zperf_msg_endpoint(request);
     assert(endpoint);
-    zsys_debug("endpoint %s", endpoint);
+    if (verbose) {
+        zsys_debug("endpoint %s", endpoint);
+    }
 
     zsock_t* yodel = zsock_new_req(endpoint);
     assert(yodel);
@@ -492,14 +499,18 @@ zperf_server_test (bool verbose)
 
     // receive the echo side 
     zperf_msg_recv(request, client);
+    if (verbose) {
+        zperf_msg_print(request);
+    }
     assert(zperf_msg_id(request) == ZPERF_MSG_RESULT);
     assert(zperf_msg_nmsgs(request) == nmsgs);
     assert(zperf_msg_msgsize(request) == msgsize);
     assert(zperf_msg_nbytes(request) == msgsize*nmsgs);
-    assert(zperf_msg_time_us(request) < 100);
+    assert(zperf_msg_time_us(request)/nmsgs < 1000); // really slow lo may fail?
 
     zperf_msg_destroy (&request);
 
+    zsock_destroy (&yodel);
     zsock_destroy (&client);
     zactor_destroy (&server);
     //  @end
