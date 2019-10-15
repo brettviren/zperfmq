@@ -28,7 +28,7 @@
 <g id="edge1" class="edge">
 <title>s_start&#45;&gt;s_defaults</title>
 <path fill="none" stroke="#000000" stroke-dasharray="5,2" d="M383,-602.9984C383,-560.6632 383,-482.755 383,-430.6562"/>
-<polygon fill="#000000" stroke="#000000" points="386.5001,-430.5988 383,-420.5988 379.5001,-430.5988 386.5001,-430.5988"/>
+<polygon fill="none" stroke="#000000" points="386.5001,-430.5988 383,-420.5988 379.5001,-430.5988 386.5001,-430.5988"/>
 </g>
 <!-- m_start_hello -->
 <g id="node5" class="node">
@@ -60,7 +60,7 @@
 <g id="edge2" class="edge">
 <title>s_connected&#45;&gt;s_defaults</title>
 <path fill="none" stroke="#000000" stroke-dasharray="5,2" d="M626.7714,-587.4003C616.8356,-569.4985 603.7033,-549.7516 588,-535 563.0762,-511.5866 548.123,-518.4546 520,-499 483.8958,-474.0242 446.8042,-440.7059 420.3362,-415.3557"/>
-<polygon fill="#000000" stroke="#000000" points="422.4445,-412.5261 412.8198,-408.0972 417.5819,-417.5615 422.4445,-412.5261"/>
+<polygon fill="none" stroke="#000000" points="422.4445,-412.5261 412.8198,-408.0972 417.5819,-417.5615 422.4445,-412.5261"/>
 </g>
 <!-- s_connected&#45;&gt;m_start_hello -->
 <g id="edge5" class="edge">
@@ -119,7 +119,7 @@
 <g id="edge3" class="edge">
 <title>s_have_perf&#45;&gt;s_connected</title>
 <path fill="none" stroke="#000000" stroke-dasharray="5,2" d="M754.1398,-782.4835C738.7451,-767.5455 721.0964,-749.1599 707,-731 696.2097,-717.0992 685.8206,-701.0804 676.8476,-686.0752"/>
-<polygon fill="#000000" stroke="#000000" points="679.8214,-684.2275 671.7357,-677.3811 673.7872,-687.7754 679.8214,-684.2275"/>
+<polygon fill="none" stroke="#000000" points="679.8214,-684.2275 671.7357,-677.3811 673.7872,-687.7754 679.8214,-684.2275"/>
 </g>
 <!-- s_have_perf&#45;&gt;m_connected_create -->
 <g id="edge8" class="edge">
@@ -170,22 +170,23 @@
 <!-- m_have_perf_socket_return -->
 <g id="node9" class="node">
 <title>m_have_perf_socket_return</title>
-<polygon fill="#ffffff" stroke="transparent" points="220.5,-608 220.5,-658 327.5,-658 327.5,-608 220.5,-608"/>
-<polygon fill="#000000" stroke="transparent" points="224,-634 224,-655 325,-655 325,-634 224,-634"/>
-<text text-anchor="start" x="239" y="-640.8" font-family="Times,serif" font-size="14.00" fill="#ffffff">socket return</text>
-<text text-anchor="start" x="228" y="-617.8" font-family="Times,serif" font-size="14.00" fill="#000000">send (socket_ok)</text>
-<polygon fill="none" stroke="#000000" points="220.5,-608 220.5,-658 327.5,-658 327.5,-608 220.5,-608"/>
+<polygon fill="#ffffff" stroke="transparent" points="220.5,-596.5 220.5,-669.5 327.5,-669.5 327.5,-596.5 220.5,-596.5"/>
+<polygon fill="#000000" stroke="transparent" points="224,-645 224,-666 325,-666 325,-645 224,-645"/>
+<text text-anchor="start" x="239" y="-651.8" font-family="Times,serif" font-size="14.00" fill="#ffffff">socket return</text>
+<text text-anchor="start" x="244" y="-628.8" font-family="Times,serif" font-size="14.00" fill="#000000">borc return</text>
+<text text-anchor="start" x="228" y="-605.8" font-family="Times,serif" font-size="14.00" fill="#000000">send (socket_ok)</text>
+<polygon fill="none" stroke="#000000" points="220.5,-596.5 220.5,-669.5 327.5,-669.5 327.5,-596.5 220.5,-596.5"/>
 </g>
 <!-- s_have_perf&#45;&gt;m_have_perf_socket_return -->
 <g id="edge15" class="edge">
 <title>s_have_perf&#45;&gt;m_have_perf_socket_return</title>
-<path fill="none" stroke="#000000" d="M741.6835,-811.1114C638.6202,-801.2258 401.7332,-773.639 335,-731 312.5399,-716.6492 295.0909,-692.2905 284.3428,-671.4493"/>
-<polygon fill="#000000" stroke="#000000" points="287.3691,-669.6661 279.8821,-662.1697 281.0601,-672.6988 287.3691,-669.6661"/>
+<path fill="none" stroke="#000000" d="M741.6835,-811.1114C638.6202,-801.2258 401.7332,-773.639 335,-731 316.3762,-719.1004 301.1978,-700.3196 290.4283,-682.369"/>
+<polygon fill="#000000" stroke="#000000" points="293.4702,-680.6376 285.4999,-673.6573 287.3776,-684.0844 293.4702,-680.6376"/>
 </g>
 <!-- s_have_perf&#45;&gt;m_have_perf_socket_return -->
 <g id="edge16" class="edge">
 <title>s_have_perf&#45;&gt;m_have_perf_socket_return</title>
-<path fill="none" stroke="#000000" d="M731.7465,-809.0576C627.7559,-797.729 415.5745,-770.9818 353,-731 327.1001,-714.4513 307.8637,-684.5945 294.4741,-662.1697"/>
+<path fill="none" stroke="#000000" d="M731.7465,-809.0576C627.7559,-797.729 415.5745,-770.9818 353,-731 331.3286,-717.1532 314.3226,-693.9889 301.5034,-673.6573"/>
 <polygon fill="#000000" stroke="#000000" points="731.448,-812.5457 741.7657,-810.138 732.1985,-805.586 731.448,-812.5457"/>
 </g>
 <!-- m_have_perf_measure -->
@@ -411,7 +412,7 @@
 <g id="edge6" class="edge">
 <title>m_start_hello:hello_ok&#45;&gt;m_hello_ok</title>
 <path fill="none" stroke="#000000" stroke-dasharray="1,5" d="M648,-354C670.009,-354 658.3363,-276.7739 668,-257 677.1569,-238.2632 691.2335,-220.2411 704.7288,-205.4395"/>
-<polygon fill="#000000" stroke="#000000" points="707.4135,-207.6933 711.7038,-198.006 702.3088,-202.9034 707.4135,-207.6933"/>
+<polygon fill="#000000" stroke="#000000" points="711.7038,-198.006 708.1427,-208.3776 708.2824,-201.6522 704.8611,-205.2984 704.8611,-205.2984 704.8611,-205.2984 708.2824,-201.6522 701.5795,-202.2192 711.7038,-198.006 711.7038,-198.006"/>
 </g>
 <!-- m_perf_ok -->
 <g id="node19" class="node">
@@ -429,13 +430,13 @@
 <g id="edge9" class="edge">
 <title>m_connected_create:perf_ok&#45;&gt;m_perf_ok</title>
 <path fill="none" stroke="#000000" stroke-dasharray="1,5" d="M796,-343C835.2422,-343 798.3274,-292.0375 816,-257 825.3918,-238.3798 839.5127,-220.3797 852.9776,-205.563"/>
-<polygon fill="#000000" stroke="#000000" points="855.6627,-207.8158 859.9306,-198.1186 850.547,-203.0378 855.6627,-207.8158"/>
+<polygon fill="#000000" stroke="#000000" points="859.9306,-198.1186 856.3935,-208.4984 856.5177,-201.7727 853.1048,-205.4268 853.1048,-205.4268 853.1048,-205.4268 856.5177,-201.7727 849.8161,-202.3552 859.9306,-198.1186 859.9306,-198.1186"/>
 </g>
 <!-- m_connected_lookup&#45;&gt;m_perf_ok -->
 <g id="edge12" class="edge">
 <title>m_connected_lookup:perf_ok&#45;&gt;m_perf_ok</title>
 <path fill="none" stroke="#000000" stroke-dasharray="1,5" d="M891,-333C891,-290.3517 891,-241.4649 891,-208.2411"/>
-<polygon fill="#000000" stroke="#000000" points="894.5001,-208.0322 891,-198.0322 887.5001,-208.0323 894.5001,-208.0322"/>
+<polygon fill="#000000" stroke="#000000" points="891,-198.0322 895.5001,-208.0322 891,-203.0322 891.0001,-208.0322 891.0001,-208.0322 891.0001,-208.0322 891,-203.0322 886.5001,-208.0323 891,-198.0322 891,-198.0322"/>
 </g>
 <!-- m_socket_ok -->
 <g id="node21" class="node">
@@ -460,8 +461,8 @@
 <!-- m_have_perf_socket_return&#45;&gt;m_socket_ok -->
 <g id="edge17" class="edge">
 <title>m_have_perf_socket_return:socket_ok&#45;&gt;m_socket_ok</title>
-<path fill="none" stroke="#000000" stroke-dasharray="1,5" d="M275,-611C275,-552.7646 266.5745,-486.883 259.1367,-440.0705"/>
-<polygon fill="#000000" stroke="#000000" points="262.5732,-439.3961 257.5192,-430.0844 255.6633,-440.5154 262.5732,-439.3961"/>
+<path fill="none" stroke="#000000" stroke-dasharray="1,5" d="M275,-599C275,-545.0307 266.9684,-484.1913 259.6661,-440.03"/>
+<polygon fill="#000000" stroke="#000000" points="257.9771,-430.0249 264.079,-439.1363 258.8094,-434.9552 259.6418,-439.8854 259.6418,-439.8854 259.6418,-439.8854 258.8094,-434.9552 255.2046,-440.6345 257.9771,-430.0249 257.9771,-430.0249"/>
 </g>
 <!-- m_result -->
 <g id="node22" class="node">
@@ -511,7 +512,7 @@
 <g id="edge22" class="edge">
 <title>m_have_perf_measure_return:result&#45;&gt;m_result</title>
 <path fill="none" stroke="#000000" stroke-dasharray="1,5" d="M1014,-611C1014,-577.8821 1017.2123,-542.3606 1021.6013,-509.2831"/>
-<polygon fill="#000000" stroke="#000000" points="1025.1064,-509.4846 1022.9989,-499.1015 1018.1714,-508.5325 1025.1064,-509.4846"/>
+<polygon fill="#000000" stroke="#000000" points="1022.9989,-499.1015 1026.0971,-509.6206 1022.3189,-504.055 1021.6389,-509.0085 1021.6389,-509.0085 1021.6389,-509.0085 1022.3189,-504.055 1017.1807,-508.3965 1022.9989,-499.1015 1022.9989,-499.1015"/>
 </g>
 <!-- m_info_ok -->
 <g id="node20" class="node">
@@ -533,7 +534,7 @@
 <g id="edge25" class="edge">
 <title>m_have_perf_info:info_ok&#45;&gt;m_info_ok</title>
 <path fill="none" stroke="#000000" stroke-dasharray="1,5" d="M1165,-553C1165,-510.0294 1177.8836,-462.9406 1189.8635,-428.4433"/>
-<polygon fill="#000000" stroke="#000000" points="1193.3074,-429.2062 1193.3715,-418.6115 1186.7145,-426.8538 1193.3074,-429.2062"/>
+<polygon fill="#000000" stroke="#000000" points="1193.3715,-418.6115 1194.2492,-429.5422 1191.6912,-423.3208 1190.0109,-428.03 1190.0109,-428.03 1190.0109,-428.03 1191.6912,-423.3208 1185.7726,-426.5177 1193.3715,-418.6115 1193.3715,-418.6115"/>
 </g>
 <!-- m_ping_ok -->
 <g id="node23" class="node">
@@ -547,7 +548,7 @@
 <g id="edge28" class="edge">
 <title>m_defaults_ping:ping_ok&#45;&gt;m_ping_ok</title>
 <path fill="none" stroke="#000000" stroke-dasharray="1,5" d="M350,-147C350,-120.427 350,-90.1245 350,-68.655"/>
-<polygon fill="#000000" stroke="#000000" points="353.5001,-68.5901 350,-58.5902 346.5001,-68.5902 353.5001,-68.5901"/>
+<polygon fill="#000000" stroke="#000000" points="350,-58.5902 354.5001,-68.5901 350,-63.5902 350.0001,-68.5902 350.0001,-68.5902 350.0001,-68.5902 350,-63.5902 345.5001,-68.5902 350,-58.5902 350,-58.5902"/>
 </g>
 <!-- m_goodbye_ok -->
 <g id="node24" class="node">
@@ -561,7 +562,7 @@
 <g id="edge31" class="edge">
 <title>m_defaults_goodbye:goodbye_ok&#45;&gt;m_goodbye_ok</title>
 <path fill="none" stroke="#000000" stroke-dasharray="1,5" d="M549,-168C592.8292,-168 546.4987,-104.0599 515.7236,-66.7394"/>
-<polygon fill="#000000" stroke="#000000" points="518.1551,-64.1912 509.0537,-58.7676 512.7864,-68.6832 518.1551,-64.1912"/>
+<polygon fill="#000000" stroke="#000000" points="509.0537,-58.7676 518.922,-63.5495 512.2622,-62.6024 515.4707,-66.4372 515.4707,-66.4372 515.4707,-66.4372 512.2622,-62.6024 512.0195,-69.3249 509.0537,-58.7676 509.0537,-58.7676"/>
 </g>
 <!-- m_error -->
 <g id="node25" class="node">
@@ -583,13 +584,13 @@
 <g id="edge36" class="edge">
 <title>m_defaults_exception:error&#45;&gt;m_error</title>
 <path fill="none" stroke="#000000" stroke-dasharray="1,5" d="M83,-168C87.2093,-168 98.9489,-126.6473 108.2765,-91.043"/>
-<polygon fill="#000000" stroke="#000000" points="111.7087,-91.7511 110.8351,-81.1923 104.9335,-89.9913 111.7087,-91.7511"/>
+<polygon fill="#000000" stroke="#000000" points="110.8351,-81.1923 112.6765,-92.0025 109.5781,-86.0318 108.3211,-90.8712 108.3211,-90.8712 108.3211,-90.8712 109.5781,-86.0318 103.9656,-89.7399 110.8351,-81.1923 110.8351,-81.1923"/>
 </g>
 <!-- m_defaults__&#45;&gt;m_error -->
 <g id="edge39" class="edge">
 <title>m_defaults__:error&#45;&gt;m_error</title>
 <path fill="none" stroke="#000000" stroke-dasharray="1,5" d="M124,-157C109.9424,-157 110.2623,-122.6733 113.493,-91.2862"/>
-<polygon fill="#000000" stroke="#000000" points="116.9824,-91.5763 114.6297,-81.246 110.0268,-90.7888 116.9824,-91.5763"/>
+<polygon fill="#000000" stroke="#000000" points="114.6297,-81.246 117.9761,-91.6888 114.0671,-86.2143 113.5046,-91.1826 113.5046,-91.1826 113.5046,-91.1826 114.0671,-86.2143 109.0332,-90.6763 114.6297,-81.246 114.6297,-81.246"/>
 </g>
 </g>
 </svg>

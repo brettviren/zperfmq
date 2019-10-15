@@ -12,7 +12,7 @@ endfunction
 
 function dot_state_inheritance(state)
   if defined(state.inherit)
-    >  s_$(name:c) -> "s_$(state.inherit:c)" [style=dashed];
+    >  s_$(name:c) -> "s_$(state.inherit:c)" [style="dashed", arrowhead="onormal"];
   endif
 endfunction
 
@@ -92,7 +92,7 @@ endfunction
 
 function generate_state_event_action_edge
   if defined(action.message) & action.name = "send"
-    > m_$(state.name:c)_$(event.name:c):$(action.message:c) -> m_$(action.message:c) [style = "dotted"];
+    > m_$(state.name:c)_$(event.name:c):$(action.message:c) -> m_$(action.message:c) [style = "dotted", arrowhead="ovee"];
   endif
 endfunction
 
