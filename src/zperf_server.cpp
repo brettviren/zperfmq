@@ -307,18 +307,21 @@ s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
     perfinfo_t* pi = (perfinfo_t*)zhashx_lookup(self->perfinfos, key);
     assert(pi);
     self->perfinfo = pi;
-
     client_t* client = (client_t*)zlist_pop(pi->waiting);
     assert(client);
 
-    zsys_debug("handling pipe from perf 0x%lX", key);
+    if (engine_verbose(self)) {
+        zsys_debug("handling pipe message from perf 0x%lX", key);
+    }
 
     zmsg_t* request = zmsg_recv(pipe);
     char* command = zmsg_popstr(request);
     if (streq(command, "BIND") || streq(command, "CONNECT")) {
         char* ep = zmsg_popstr(request);
         int port_or_rc = pop_int(request);
-        zsys_debug("%s %s %d", command, ep, port_or_rc);
+        if (engine_verbose(self)) {
+            zsys_debug("%s %s %d", command, ep, port_or_rc);
+        }
 
         if (port_or_rc < 0) {
             engine_set_exception(client, exception_event);
@@ -329,8 +332,10 @@ s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
             zperf_msg_set_id(client->message, ZPERF_MSG_SOCKET_OK);
             zperf_msg_set_borc(client->message, command);
             zperf_msg_set_endpoint(client->message, ep);
-            engine_set_next_event(client, socket_return_event);
-            zsys_debug("next event is socket_return_event");
+            if (engine_verbose(self)) {
+                zperf_msg_print(client->message);
+            }
+            engine_send_event(client, socket_return_event);
         }
     }
     else if(streq(command, "ECHO") || streq(command, "YODEL")
@@ -341,7 +346,10 @@ s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
         zperf_msg_set_time_us(client->message, pop_long(request));
         zperf_msg_set_cpu_us(client->message, pop_long(request));
         zperf_msg_set_noos(client->message, pop_int(request));
-        engine_set_next_event(client, measure_return_event);
+        if (engine_verbose(self)) {
+            zperf_msg_print(client->message);
+        }
+        engine_send_event(client, measure_return_event);
     }
     else {
         zsys_warning("Unhandled command: %s", command);
@@ -349,7 +357,7 @@ s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
 
     zstr_free(&command);
     zmsg_destroy(&request);
-    return 0;
+
 }
 
 
@@ -423,8 +431,11 @@ zperf_server_test (bool verbose)
     zperf_msg_set_id(request, ZPERF_MSG_SOCKET);
     zperf_msg_set_borc(request, "BIND");
     zperf_msg_set_endpoint(request, "tcp://127.0.0.1:*");
+    zsys_debug("send");
+    zperf_msg_print(request);
     rc = zperf_msg_send(request, client);
     assert(rc == 0);
+    zsys_debug("receiving response");
     rc = zperf_msg_recv(request, client);
     zsys_debug("SOCKET rc = %d, back = %d",rc, zperf_msg_id(request));
     assert(rc == 0);
@@ -445,8 +456,9 @@ zperf_server_test (bool verbose)
     zperf_msg_set_measure(request, "ECHO");
     zperf_msg_set_nmsgs(request, nmsgs);    
     zperf_msg_set_msgsize(request, msgsize);    
-    zperf_msg_set_timeout(request, 0);
-    zperf_msg_send(request, client);
+    zperf_msg_set_timeout(request, 0); // fixme: unused for now
+    rc = zperf_msg_send(request, client);
+    assert (rc == 0);
     
     // supply the yodel
     for (int count=0; count < nmsgs; ++count) {
