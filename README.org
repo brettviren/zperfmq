@@ -159,6 +159,10 @@ now it's here
 - [[file:src/zproto_comm_dot.gsl]] the GSL file
 - [[file:comm.xml]] the driver file, also uses ~src/zperf_*.xml~
 
-Example result:
+Example result for server + codec:
 
- [[file:zperf_protocol.svg]]
+[[file:zperf_server_protocol.svg]]
+
+And client + codec:
+
+[[file:zperf_client_protocol.svg]]

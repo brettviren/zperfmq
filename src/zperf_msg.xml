@@ -37,7 +37,7 @@
     <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
   </message>
 
-  <message name = "PERF-OK">
+  <message name = "PERF OK">
     <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
   </message>
 
@@ -47,7 +47,7 @@
     <field name = "endpoints" type= "hash">Hash of address to bind or connect</field>
   </message>
 
-  <message name = "INFO-OK">
+  <message name = "INFO OK">
     <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
     <field name = "perfinfo" type = "string">Info about the perf instance</field>
   </message>

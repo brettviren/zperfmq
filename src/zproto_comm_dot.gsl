@@ -21,9 +21,9 @@ function dot_event(event)
 endfunction
 
 
-function dot_mlabel_beg(name)
-  label = "<<table border=\"1\" cellborder=\"0\" cellpadding=\"3\" bgcolor=\"white\">\n"
-  label = label + "<tr><td bgcolor=\"black\" colspan=\"2\"><font color=\"white\">$(my.name)</font></td></tr>\n"
+function dot_mlabel_beg(name, fgcolor, bgcolor)
+  label = "<<table border=\"1\" cellborder=\"0\" cellspacing=\"4\" cellpadding=\"3\" bgcolor=\"white\">\n"
+  label = label + "<tr><td style=\"ROUNDED\" border=\"1\" bgcolor=\"$(my.bgcolor)\" colspan=\"2\"><font color=\"$(my.fgcolor)\">$(my.name)</font></td></tr>\n"
   return label
 endfunction
 function dot_mlabel_end
@@ -59,14 +59,16 @@ function dot_event_label(event)
 endfunction
 
 function generate_free_message_node
-  label = dot_mlabel_beg(message.name)
+  #echo "free message: m_$(message.name:c)"
+  label = dot_mlabel_beg(message.name, "black", "gray")
   label = label + dot_message_label(message.name)
   label = label + dot_mlabel_end()
   > m_$(message.name:c) [shape = "plaintext" style = "solid" label = $(label)];
 endfunction
 
 function generate_external_message_node
-  label = dot_mlabel_beg(event.name)
+  #echo "external event: m_$(event.name:c)"
+  label = dot_mlabel_beg(event.name, "black", "gray")
   label = label + dot_message_label(event.name)
   label = label + dot_event_label(event)
   label = label + dot_mlabel_end()
@@ -74,7 +76,8 @@ function generate_external_message_node
 endfunction    
 
 function generate_internal_message_node
-  label = dot_mlabel_beg(event.name)
+  #echo "internal event: m_$(event.name:c)"
+  label = dot_mlabel_beg(event.name, "black", "gray90")
   label = label + dot_event_label(event)
   label = label + dot_mlabel_end()
   > m_$(state.name:c)_$(event.name:c) [shape = "plaintext" style = "solid" label = $(label)];
@@ -92,25 +95,29 @@ endfunction
 
 function generate_state_event_action_edge
   if defined(action.message) & action.name = "send"
+    #echo "event action edge: m_$(action.message:c)"
     > m_$(state.name:c)_$(event.name:c):$(action.message:c) -> m_$(action.message:c) [style = "dotted", arrowhead="ovee"];
   endif
 endfunction
 
 
-function generate_dot
-  output "$(class.name).dot"
+function generate_dot_one (thing)
+  output "$(class.name:c)_$(my.thing.name:c).dot"
   >digraph $(class.name:c) {
-  >  label="$(class.name:Neat): server and codec";
+  >  label="$(my.thing.name) and $(global.codec.name)";
   >  labelloc="top";
   # nodes                          
 
-  for global.server.state as state
+  for my.thing.state as state
     dot_state(state)
   endfor
 
-  for global.server.state as state
+  for my.thing.state as state
     for state.event as event
-      copy event to class
+      if count(class.event, name = -1.name) = 0
+        copy event to class
+        #echo "stash $(event.name)"
+      endif
       if count(global.codec.message, name = event.name)
         generate_external_message_node()
       else
@@ -119,17 +126,21 @@ function generate_dot
     endfor
   endfor
 
-  for global.codec.message where count(class.event, event.name = message.name) = 0
-    generate_free_message_node()
+  for global.codec.message
+    nseen = count(class.event, event.name = -1.name)
+    #echo "have $(nseen) $(name)"
+    if nseen = 0
+      generate_free_message_node()
+    endif
   endfor
 
   # edges
   
-  for global.server.state as state
+  for my.thing.state as state
     dot_state_inheritance(state)
   endfor
 
-  for global.server.state as state
+  for my.thing.state as state
     for state.event as event 
       generate_state_event_edge()
       for event.action as action
@@ -141,6 +152,12 @@ function generate_dot
 
   >}
 endfunction
+
+function generate_dot
+  generate_dot_one(global.server)
+  generate_dot_one(global.client)
+endfunction
+
 
 generate_dot()
 .endtemplate

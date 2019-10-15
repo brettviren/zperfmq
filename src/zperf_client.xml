@@ -24,9 +24,6 @@
       <action name = "signal bad endpoint" />
       <action name = "terminate" />
     </event>
-    <event name = "destructor">
-      <action name = "signal success" />
-    </event>
   </state>
 
   <state name = "expect hello ok" inherit = "defaults">
@@ -36,56 +33,64 @@
     </event>
   </state>
 
+
   <state name = "connected" inherit = "defaults">
-    <event name = "create perf" next = "expect create ok">
+
+    <event name = "create perf">
       <action name = "set perf attributes" />
       <action name = "send" message = "CREATE" />
     </event>
-    <event name = "set socket" next = "expect socket ok">
+    <event name = "ask lookup">
+      <action name = "set perf ident" />
+      <action name = "send" message = "LOOKUP" />
+    </event>
+    <event name = "PERF OK" next = "have perf">
+      <action name = "remember perf" />
+      <action name = "signal got perf" />
+    </event>
+
+    <event name = "ask info">
+      <action name = "set info request" />
+      <action name = "send" message = "INFO" />
+    </event>
+    <event name = "INFO OK">
+      <action name = "remember info" />
+      <action name = "signal got info" />
+    </event>
+
+  </state>
+
+
+  <state name = "have perf" inherit = "connected">
+
+    <event name = "set socket">
       <action name = "set socket request" />
       <action name = "send" message = "SOCKET" />
     </event>
-    <event name = "set measurement" next = "expect result">
-      <action name = "set measurement request" />
-      <action name = "send" message = "MEASURE" />
-    </event>
-  </state>
-
-  <state name = "expect create ok" inherit = "defaults">
-    <event name = "CREATE OK" next = "connected">
-      <action name = "remember perf" />
-      <action name = "signal perf creation" />
-    </event>
-  </state>
-
-  <state name = "expect socket ok" inherit = "defaults">
-    <event name = "SOCKET OK" next = "connected">
+    <event name = "SOCKET OK">
       <action name = "set socket request" />
       <action name = "signal socket request" />
     </event>
-  </state>
-  
-  <state name = "expect result" inherit = "defaults">
-    <event name = "RESULT" next = "connected">
+
+    <event name = "set measurement">
+      <action name = "set measurement request" />
+      <action name = "send" message = "MEASURE" />
+    </event>
+    <event name = "RESULT">
       <action name = "set results" />
       <action name = "signal results" />
     </event>
-  </state>
 
-  <state name = "expect goodbye ok" inherit = "defaults">
-    <event name = "GOODBYE OK">
-      <action name = "signal success" />
-      <action name = "terminate" />
-    </event>
-    <event name = "*">
-      <!-- Ignore anything else the server may send us -->
-    </event>
   </state>
 
 
   <state name = "defaults">
-    <event name = "destructor" next = "expect goodbye ok">
+    <event name = "destructor">
       <action name = "send" message = "GOODBYE" />
+    </event>
+    <event name = "GOODBYE OK">
+      <action name = "signal success" />
+      <action name = "terminate" />
     </event>
     <event name = "expired">
       <action name = "check if connection is dead" />
