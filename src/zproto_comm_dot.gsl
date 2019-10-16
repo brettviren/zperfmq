@@ -23,7 +23,7 @@ endfunction
 
 function dot_mlabel_beg(name, fgcolor, bgcolor)
   label = "<<table border=\"1\" cellborder=\"0\" cellspacing=\"4\" cellpadding=\"3\" bgcolor=\"white\">\n"
-  label = label + "<tr><td style=\"ROUNDED\" border=\"1\" bgcolor=\"$(my.bgcolor)\" colspan=\"2\"><font color=\"$(my.fgcolor)\">$(my.name)</font></td></tr>\n"
+  label = label + "<tr><td style=\"ROUNDED\" border=\"1\" bgcolor=\"$(my.bgcolor)\" colspan=\"2\"><font color=\"$(my.fgcolor)\">$(name:)</font></td></tr>\n"
   return label
 endfunction
 function dot_mlabel_end
@@ -50,7 +50,7 @@ function dot_event_label(event)
     if defined(action.message) & action.name = "send"
       m_name = "($(action.message:c))"
       p_name = "$(action.message:c)"
-      label = label + "<tr><td colspan=\"2\" align=\"center\" port=\"$(p_name)\">send $(m_name)</td></tr>\n"
+      label = label + "<tr><td colspan=\"2\" align=\"center\" port=\"$(p_name)\">send $(m_name:UPPER)</td></tr>\n"
     else
       label = label + "<tr><td colspan=\"2\" align=\"center\">$(action.name)</td></tr>\n"
     endif
@@ -58,12 +58,30 @@ function dot_event_label(event)
   return label
 endfunction
 
+function dot_method_label(meth)
+  label=""
+  for my.meth.field
+    label = label + "<tr><td align=\"right\" bgcolor=\"gray\">$(name)</td><td align=\"left\" bgcolor=\"gray\">[$(type)"
+    if defined(size)
+      label = label + "*$(size:)"
+    endif
+    label = label + "]</td></tr>\n"
+  endfor
+  for my.meth.accept
+    xxx="$(accept.reply:UPPER)"
+    label = label + "<tr><td colspan=\"2\" align=\"center\" bgcolor=\"gray\">"
+    label = label + "$(reply:UPPER)"
+    label = label + "</td></tr>"
+  endfor
+  return label
+endfunction
+
 function generate_free_message_node
   #echo "free message: m_$(message.name:c)"
-  label = dot_mlabel_beg(message.name, "white", "gray30")
+  label = dot_mlabel_beg($(message.name:UPPER), "white", "gray30")
   label = label + dot_message_label(message.name)
   label = label + dot_mlabel_end()
-  > m_$(message.name:c) [shape = "plaintext" style = "solid" label = $(label)];
+  > m_$(message.name:c) [shape = "plaintext" style = "solid" label = $(label:)];
 endfunction
 
 function generate_external_message_node
@@ -72,7 +90,7 @@ function generate_external_message_node
   label = label + dot_message_label(event.name)
   label = label + dot_event_label(event)
   label = label + dot_mlabel_end()
-  > m_$(state.name:c)_$(event.name:c) [shape = "plaintext" style = "solid" label = $(label)];
+  > m_$(state.name:c)_$(event.name:c) [shape = "plaintext" style = "solid" label = $(label:)];
 endfunction    
 
 function generate_internal_message_node
@@ -80,8 +98,17 @@ function generate_internal_message_node
   label = dot_mlabel_beg(event.name, "black", "gray90")
   label = label + dot_event_label(event)
   label = label + dot_mlabel_end()
-  > m_$(state.name:c)_$(event.name:c) [shape = "plaintext" style = "solid" label = $(label)];
+  > m_$(state.name:c)_$(event.name:c) [shape = "plaintext" style = "solid" label = $(label:)];
 endfunction    
+
+function generate_method
+  #echo "method $(method.name:c)"
+  label = dot_mlabel_beg(method.name, "blue", "gray90")
+  label = label + dot_method_label(method)
+  label = label + dot_mlabel_end()
+  > f_$(name:c) [shape="plaintext" color="blue" label = $(label:)];
+endfunction
+
 
 function generate_state_event_edge
   > s_$(state.name:c) -> m_$(state.name:c)_$(event.name:c) [style="solid"];
@@ -116,7 +143,7 @@ function generate_dot_one (thing)
     for state.event as event
       if count(my.thing.event, name = -1.name) = 0
         copy event to my.thing
-        echo "stash $(event.name)"
+        #echo "stash $(event.name)"
       endif
       if count(global.codec.message, name = event.name)
         generate_external_message_node()
@@ -128,10 +155,14 @@ function generate_dot_one (thing)
 
   for global.codec.message
     nseen = count(my.thing.event, event.name = -1.name)
-    echo "have $(nseen) $(name)"
+    #echo "have $(nseen) $(name)"
     if nseen = 0
       generate_free_message_node()
     endif
+  endfor
+
+  for my.thing.method as method
+    generate_method()
   endfor
 
   # edges
@@ -145,6 +176,19 @@ function generate_dot_one (thing)
       generate_state_event_edge()
       for event.action as action
         generate_state_event_action_edge()
+      endfor
+    endfor
+  endfor
+
+  for my.thing.method as method
+    #echo "method $(method.name)"
+    for my.thing.state as state
+      #echo "  state $(state.name)"
+      for state.event as event
+        #echo "    event $(event.name)"
+        if method.name = event.name
+          >  m_$(state.name:c)_$(event.name:c) -> f_$(method.name:c) [dir="back", color="blue"];
+        endif
       endfor
     endfor
   endfor
