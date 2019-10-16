@@ -60,7 +60,7 @@ endfunction
 
 function generate_free_message_node
   #echo "free message: m_$(message.name:c)"
-  label = dot_mlabel_beg(message.name, "black", "gray")
+  label = dot_mlabel_beg(message.name, "white", "gray30")
   label = label + dot_message_label(message.name)
   label = label + dot_mlabel_end()
   > m_$(message.name:c) [shape = "plaintext" style = "solid" label = $(label)];
@@ -68,7 +68,7 @@ endfunction
 
 function generate_external_message_node
   #echo "external event: m_$(event.name:c)"
-  label = dot_mlabel_beg(event.name, "black", "gray")
+  label = dot_mlabel_beg(event.name, "white", "gray30")
   label = label + dot_message_label(event.name)
   label = label + dot_event_label(event)
   label = label + dot_mlabel_end()
@@ -114,9 +114,9 @@ function generate_dot_one (thing)
 
   for my.thing.state as state
     for state.event as event
-      if count(class.event, name = -1.name) = 0
-        copy event to class
-        #echo "stash $(event.name)"
+      if count(my.thing.event, name = -1.name) = 0
+        copy event to my.thing
+        echo "stash $(event.name)"
       endif
       if count(global.codec.message, name = event.name)
         generate_external_message_node()
@@ -127,8 +127,8 @@ function generate_dot_one (thing)
   endfor
 
   for global.codec.message
-    nseen = count(class.event, event.name = -1.name)
-    #echo "have $(nseen) $(name)"
+    nseen = count(my.thing.event, event.name = -1.name)
+    echo "have $(nseen) $(name)"
     if nseen = 0
       generate_free_message_node()
     endif

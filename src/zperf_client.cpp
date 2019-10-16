@@ -118,16 +118,6 @@ signal_bad_endpoint (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  signal_success
-//
-
-static void
-signal_success (client_t *self)
-{
-}
-
-
-//  ---------------------------------------------------------------------------
 //  signal_connected
 //
 
@@ -148,31 +138,21 @@ client_is_connected (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  set_perf_attributes
+//  set_perf_stype
 //
 
 static void
-set_perf_attributes (client_t *self)
+set_perf_stype (client_t *self)
 {
 }
 
 
 //  ---------------------------------------------------------------------------
-//  set_socket_request
+//  set_perf_ident
 //
 
 static void
-set_socket_request (client_t *self)
-{
-}
-
-
-//  ---------------------------------------------------------------------------
-//  set_measurement_request
-//
-
-static void
-set_measurement_request (client_t *self)
+set_perf_ident (client_t *self)
 {
 }
 
@@ -188,11 +168,51 @@ remember_perf (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  signal_perf_creation
+//  signal_got_perf
 //
 
 static void
-signal_perf_creation (client_t *self)
+signal_got_perf (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  set_info_request
+//
+
+static void
+set_info_request (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  remember_info
+//
+
+static void
+remember_info (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_got_info
+//
+
+static void
+signal_got_info (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  set_socket_request
+//
+
+static void
+set_socket_request (client_t *self)
 {
 }
 
@@ -203,6 +223,16 @@ signal_perf_creation (client_t *self)
 
 static void
 signal_socket_request (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  set_measurement_request
+//
+
+static void
+set_measurement_request (client_t *self)
 {
 }
 
@@ -223,6 +253,16 @@ set_results (client_t *self)
 
 static void
 signal_results (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  signal_success
+//
+
+static void
+signal_success (client_t *self)
 {
 }
 

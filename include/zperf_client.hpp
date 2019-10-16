@@ -58,31 +58,47 @@ zsock_t *
 bool
     zperf_client_connected (zperf_client_t *self);
 
-//  Request a perf to be created. Returned perf ident is needed for any subsequent
-//  set_socket or set_measurement method calls .
+//  Request a perf to be created with a given socket type. This is a synchronous
+//  call as the client will wait for confirmation. If successful,
+//  zperf_client_ident() can be used to retrieve the perf ident. This ident is
+//  required for subsequent calls.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_create_perf (zperf_client_t *self, const char *mtype, const char *stype);
+    zperf_client_create_perf (zperf_client_t *self, const char *stype);
 
-//  Request that a measurement socket be opened on the given endpoint where action
-//  is bind or connect. The ident comes from a create_perf() call.
+//  Request that a measurement socket be attached to an endpoint. The attachment is
+//  either "bind" or "connect" (borc). The ident comes from a create_perf() call. A
+//  "connect" may be repeated on the same endpoint and a "bind" may have a wild card
+//  for the port. This is a synchronous call. The endpoint is available after a
+//  successful completion.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_set_socket (zperf_client_t *self, const char *ident, const char *action, const char *endpoint);
+    zperf_client_request_borc (zperf_client_t *self, const char *ident, const char *borc, const char *endpoint);
 
-//  Set a measurement to be performed. The ident comes from a create_perf() call.
-//  Calling this before successfully setting a socket is pointless.
+//  Request a perf measure. This is a synchronous call. The fields in RESULT will be
+//  available on success.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_set_measurement (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
+    zperf_client_request_measure (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
+
+//  Request a perf measure. This is an asynchronous call. A message matching the
+//  fields in RESULT will be provided by the msgpipe when a successful measure is
+//  returned.
+//  Returns >= 0 if successful, -1 if interrupted.
+int
+    zperf_client_launch_measure (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
 
 //  Return last received ident
-const char *
+uint64_t
     zperf_client_ident (zperf_client_t *self);
 
-//  Return last received ident and transfer ownership to caller
+//  Return last received endpoint
 const char *
-    zperf_client_get_ident (zperf_client_t *self);
+    zperf_client_endpoint (zperf_client_t *self);
+
+//  Return last received endpoint and transfer ownership to caller
+const char *
+    zperf_client_get_endpoint (zperf_client_t *self);
 
 //  Return last received nmsgs
 uint32_t

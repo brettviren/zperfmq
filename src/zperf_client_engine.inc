@@ -22,30 +22,30 @@ typedef enum {
     start_state = 1,
     expect_hello_ok_state = 2,
     connected_state = 3,
-    expect_create_ok_state = 4,
-    expect_socket_ok_state = 5,
-    expect_result_state = 6,
-    expect_goodbye_ok_state = 7,
-    defaults_state = 8
+    have_perf_state = 4,
+    defaults_state = 5
 } state_t;
 
 typedef enum {
     NULL_event = 0,
     connect_event = 1,
     bad_endpoint_event = 2,
-    destructor_event = 3,
-    hello_ok_event = 4,
-    create_perf_event = 5,
-    set_socket_event = 6,
-    set_measurement_event = 7,
-    create_ok_event = 8,
-    socket_ok_event = 9,
-    result_event = 10,
-    goodbye_ok_event = 11,
-    expired_event = 12,
-    ping_ok_event = 13,
-    error_event = 14,
-    exception_event = 15
+    hello_ok_event = 3,
+    create_perf_event = 4,
+    request_lookup_event = 5,
+    perf_ok_event = 6,
+    request_info_event = 7,
+    info_ok_event = 8,
+    request_borc_event = 9,
+    socket_ok_event = 10,
+    request_measure_event = 11,
+    result_event = 12,
+    destructor_event = 13,
+    goodbye_ok_event = 14,
+    expired_event = 15,
+    ping_ok_event = 16,
+    error_event = 17,
+    exception_event = 18
 } event_t;
 
 //  Names for state machine logging and error reporting
@@ -55,10 +55,7 @@ s_state_name [] = {
     "start",
     "expect hello ok",
     "connected",
-    "expect create ok",
-    "expect socket ok",
-    "expect result",
-    "expect goodbye ok",
+    "have perf",
     "defaults"
 };
 
@@ -67,14 +64,17 @@ s_event_name [] = {
     "(NONE)",
     "connect",
     "bad_endpoint",
-    "destructor",
     "HELLO_OK",
     "create_perf",
-    "set_socket",
-    "set_measurement",
-    "create_ok",
+    "request_lookup",
+    "PERF_OK",
+    "request_info",
+    "INFO_OK",
+    "request_borc",
     "SOCKET_OK",
+    "request_measure",
     "RESULT",
+    "destructor",
     "GOODBYE_OK",
     "expired",
     "PING_OK",
@@ -90,10 +90,9 @@ s_event_name [] = {
 
 //  These are the different method arguments we manage automatically
 struct _client_args_t {
-    char *mtype;
     char *stype;
     char *ident;
-    char *action;
+    char *borc;
     char *endpoint;
     uint32_t nmsgs;
     uint64_t msgsize;
@@ -148,27 +147,35 @@ static void
 static void
     signal_bad_endpoint (client_t *self);
 static void
-    signal_success (client_t *self);
-static void
     signal_connected (client_t *self);
 static void
     client_is_connected (client_t *self);
 static void
-    set_perf_attributes (client_t *self);
+    set_perf_stype (client_t *self);
 static void
-    set_socket_request (client_t *self);
-static void
-    set_measurement_request (client_t *self);
+    set_perf_ident (client_t *self);
 static void
     remember_perf (client_t *self);
 static void
-    signal_perf_creation (client_t *self);
+    signal_got_perf (client_t *self);
+static void
+    set_info_request (client_t *self);
+static void
+    remember_info (client_t *self);
+static void
+    signal_got_info (client_t *self);
+static void
+    set_socket_request (client_t *self);
 static void
     signal_socket_request (client_t *self);
+static void
+    set_measurement_request (client_t *self);
 static void
     set_results (client_t *self);
 static void
     signal_results (client_t *self);
+static void
+    signal_success (client_t *self);
 static void
     check_if_connection_is_dead (client_t *self);
 static void
@@ -220,10 +227,9 @@ s_client_destroy (s_client_t **self_p)
     assert (self_p);
     if (*self_p) {
         s_client_t *self = *self_p;
-        zstr_free (&self->args.mtype);
         zstr_free (&self->args.stype);
         zstr_free (&self->args.ident);
-        zstr_free (&self->args.action);
+        zstr_free (&self->args.borc);
         zstr_free (&self->args.endpoint);
         client_terminate (&self->client);
         zperf_msg_destroy (&self->message);
@@ -378,6 +384,12 @@ s_protocol_event (s_client_t *self, zperf_msg_t *message)
         case ZPERF_MSG_HELLO_OK:
             return hello_ok_event;
             break;
+        case ZPERF_MSG_PERF_OK:
+            return perf_ok_event;
+            break;
+        case ZPERF_MSG_INFO_OK:
+            return info_ok_event;
+            break;
         case ZPERF_MSG_SOCKET_OK:
             return socket_ok_event;
             break;
@@ -473,15 +485,6 @@ s_client_execute (s_client_t *self, event_t event)
                         self->fsm_stopped = true;
                     }
                 }
-                else
-                if (self->event == destructor_event) {
-                    if (!self->exception) {
-                        //  signal success
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ signal success", self->log_prefix);
-                        signal_success (&self->client);
-                    }
-                }
                 else {
                     //  Handle unexpected internal events
                     zsys_warning ("%s: unhandled event %s in %s",
@@ -519,8 +522,21 @@ s_client_execute (s_client_t *self, event_t event)
                         zperf_msg_set_id (self->message, ZPERF_MSG_GOODBYE);
                         zperf_msg_send (self->message, self->dealer);
                     }
-                    if (!self->exception)
-                        self->state = expect_goodbye_ok_state;
+                }
+                else
+                if (self->event == goodbye_ok_event) {
+                    if (!self->exception) {
+                        //  signal success
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal success", self->log_prefix);
+                        signal_success (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->fsm_stopped = true;
+                    }
                 }
                 else
                 if (self->event == expired_event) {
@@ -586,10 +602,10 @@ s_client_execute (s_client_t *self, event_t event)
             case connected_state:
                 if (self->event == create_perf_event) {
                     if (!self->exception) {
-                        //  set perf attributes
+                        //  set perf stype
                         if (self->verbose)
-                            zsys_debug ("%s:         $ set perf attributes", self->log_prefix);
-                        set_perf_attributes (&self->client);
+                            zsys_debug ("%s:         $ set perf stype", self->log_prefix);
+                        set_perf_stype (&self->client);
                     }
                     if (!self->exception) {
                         //  send CREATE
@@ -599,123 +615,26 @@ s_client_execute (s_client_t *self, event_t event)
                         zperf_msg_set_id (self->message, ZPERF_MSG_CREATE);
                         zperf_msg_send (self->message, self->dealer);
                     }
-                    if (!self->exception)
-                        self->state = expect_create_ok_state;
                 }
                 else
-                if (self->event == set_socket_event) {
+                if (self->event == request_lookup_event) {
                     if (!self->exception) {
-                        //  set socket request
+                        //  set perf ident
                         if (self->verbose)
-                            zsys_debug ("%s:         $ set socket request", self->log_prefix);
-                        set_socket_request (&self->client);
+                            zsys_debug ("%s:         $ set perf ident", self->log_prefix);
+                        set_perf_ident (&self->client);
                     }
                     if (!self->exception) {
-                        //  send SOCKET
+                        //  send LOOKUP
                         if (self->verbose)
-                            zsys_debug ("%s:         $ send SOCKET",
+                            zsys_debug ("%s:         $ send LOOKUP",
                                 self->log_prefix);
-                        zperf_msg_set_id (self->message, ZPERF_MSG_SOCKET);
-                        zperf_msg_send (self->message, self->dealer);
-                    }
-                    if (!self->exception)
-                        self->state = expect_socket_ok_state;
-                }
-                else
-                if (self->event == set_measurement_event) {
-                    if (!self->exception) {
-                        //  set measurement request
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ set measurement request", self->log_prefix);
-                        set_measurement_request (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  send MEASURE
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ send MEASURE",
-                                self->log_prefix);
-                        zperf_msg_set_id (self->message, ZPERF_MSG_MEASURE);
-                        zperf_msg_send (self->message, self->dealer);
-                    }
-                    if (!self->exception)
-                        self->state = expect_result_state;
-                }
-                else
-                if (self->event == destructor_event) {
-                    if (!self->exception) {
-                        //  send GOODBYE
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ send GOODBYE",
-                                self->log_prefix);
-                        zperf_msg_set_id (self->message, ZPERF_MSG_GOODBYE);
-                        zperf_msg_send (self->message, self->dealer);
-                    }
-                    if (!self->exception)
-                        self->state = expect_goodbye_ok_state;
-                }
-                else
-                if (self->event == expired_event) {
-                    if (!self->exception) {
-                        //  check if connection is dead
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ check if connection is dead", self->log_prefix);
-                        check_if_connection_is_dead (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  send PING
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ send PING",
-                                self->log_prefix);
-                        zperf_msg_set_id (self->message, ZPERF_MSG_PING);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_LOOKUP);
                         zperf_msg_send (self->message, self->dealer);
                     }
                 }
                 else
-                if (self->event == ping_ok_event) {
-                    if (!self->exception) {
-                        //  client is connected
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
-                        client_is_connected (&self->client);
-                    }
-                }
-                else
-                if (self->event == error_event) {
-                    if (!self->exception) {
-                        //  check status code
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ check status code", self->log_prefix);
-                        check_status_code (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  terminate
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ terminate", self->log_prefix);
-                        self->fsm_stopped = true;
-                    }
-                }
-                else
-                if (self->event == exception_event) {
-                }
-                else {
-                    //  Handle unexpected protocol events
-                    if (!self->exception) {
-                        //  signal internal error
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ signal internal error", self->log_prefix);
-                        signal_internal_error (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  terminate
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ terminate", self->log_prefix);
-                        self->fsm_stopped = true;
-                    }
-                }
-                break;
-
-            case expect_create_ok_state:
-                if (self->event == create_ok_event) {
+                if (self->event == perf_ok_event) {
                     if (!self->exception) {
                         //  remember perf
                         if (self->verbose)
@@ -723,13 +642,45 @@ s_client_execute (s_client_t *self, event_t event)
                         remember_perf (&self->client);
                     }
                     if (!self->exception) {
-                        //  signal perf creation
+                        //  signal got perf
                         if (self->verbose)
-                            zsys_debug ("%s:         $ signal perf creation", self->log_prefix);
-                        signal_perf_creation (&self->client);
+                            zsys_debug ("%s:         $ signal got perf", self->log_prefix);
+                        signal_got_perf (&self->client);
                     }
                     if (!self->exception)
-                        self->state = connected_state;
+                        self->state = have_perf_state;
+                }
+                else
+                if (self->event == request_info_event) {
+                    if (!self->exception) {
+                        //  set info request
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ set info request", self->log_prefix);
+                        set_info_request (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send INFO
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send INFO",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_INFO);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
+                }
+                else
+                if (self->event == info_ok_event) {
+                    if (!self->exception) {
+                        //  remember info
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ remember info", self->log_prefix);
+                        remember_info (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  signal got info
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal got info", self->log_prefix);
+                        signal_got_info (&self->client);
+                    }
                 }
                 else
                 if (self->event == destructor_event) {
@@ -741,253 +692,8 @@ s_client_execute (s_client_t *self, event_t event)
                         zperf_msg_set_id (self->message, ZPERF_MSG_GOODBYE);
                         zperf_msg_send (self->message, self->dealer);
                     }
-                    if (!self->exception)
-                        self->state = expect_goodbye_ok_state;
                 }
                 else
-                if (self->event == expired_event) {
-                    if (!self->exception) {
-                        //  check if connection is dead
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ check if connection is dead", self->log_prefix);
-                        check_if_connection_is_dead (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  send PING
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ send PING",
-                                self->log_prefix);
-                        zperf_msg_set_id (self->message, ZPERF_MSG_PING);
-                        zperf_msg_send (self->message, self->dealer);
-                    }
-                }
-                else
-                if (self->event == ping_ok_event) {
-                    if (!self->exception) {
-                        //  client is connected
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
-                        client_is_connected (&self->client);
-                    }
-                }
-                else
-                if (self->event == error_event) {
-                    if (!self->exception) {
-                        //  check status code
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ check status code", self->log_prefix);
-                        check_status_code (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  terminate
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ terminate", self->log_prefix);
-                        self->fsm_stopped = true;
-                    }
-                }
-                else
-                if (self->event == exception_event) {
-                }
-                else {
-                    //  Handle unexpected protocol events
-                    if (!self->exception) {
-                        //  signal internal error
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ signal internal error", self->log_prefix);
-                        signal_internal_error (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  terminate
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ terminate", self->log_prefix);
-                        self->fsm_stopped = true;
-                    }
-                }
-                break;
-
-            case expect_socket_ok_state:
-                if (self->event == socket_ok_event) {
-                    if (!self->exception) {
-                        //  set socket request
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ set socket request", self->log_prefix);
-                        set_socket_request (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  signal socket request
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ signal socket request", self->log_prefix);
-                        signal_socket_request (&self->client);
-                    }
-                    if (!self->exception)
-                        self->state = connected_state;
-                }
-                else
-                if (self->event == destructor_event) {
-                    if (!self->exception) {
-                        //  send GOODBYE
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ send GOODBYE",
-                                self->log_prefix);
-                        zperf_msg_set_id (self->message, ZPERF_MSG_GOODBYE);
-                        zperf_msg_send (self->message, self->dealer);
-                    }
-                    if (!self->exception)
-                        self->state = expect_goodbye_ok_state;
-                }
-                else
-                if (self->event == expired_event) {
-                    if (!self->exception) {
-                        //  check if connection is dead
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ check if connection is dead", self->log_prefix);
-                        check_if_connection_is_dead (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  send PING
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ send PING",
-                                self->log_prefix);
-                        zperf_msg_set_id (self->message, ZPERF_MSG_PING);
-                        zperf_msg_send (self->message, self->dealer);
-                    }
-                }
-                else
-                if (self->event == ping_ok_event) {
-                    if (!self->exception) {
-                        //  client is connected
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
-                        client_is_connected (&self->client);
-                    }
-                }
-                else
-                if (self->event == error_event) {
-                    if (!self->exception) {
-                        //  check status code
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ check status code", self->log_prefix);
-                        check_status_code (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  terminate
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ terminate", self->log_prefix);
-                        self->fsm_stopped = true;
-                    }
-                }
-                else
-                if (self->event == exception_event) {
-                }
-                else {
-                    //  Handle unexpected protocol events
-                    if (!self->exception) {
-                        //  signal internal error
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ signal internal error", self->log_prefix);
-                        signal_internal_error (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  terminate
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ terminate", self->log_prefix);
-                        self->fsm_stopped = true;
-                    }
-                }
-                break;
-
-            case expect_result_state:
-                if (self->event == result_event) {
-                    if (!self->exception) {
-                        //  set results
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ set results", self->log_prefix);
-                        set_results (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  signal results
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ signal results", self->log_prefix);
-                        signal_results (&self->client);
-                    }
-                    if (!self->exception)
-                        self->state = connected_state;
-                }
-                else
-                if (self->event == destructor_event) {
-                    if (!self->exception) {
-                        //  send GOODBYE
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ send GOODBYE",
-                                self->log_prefix);
-                        zperf_msg_set_id (self->message, ZPERF_MSG_GOODBYE);
-                        zperf_msg_send (self->message, self->dealer);
-                    }
-                    if (!self->exception)
-                        self->state = expect_goodbye_ok_state;
-                }
-                else
-                if (self->event == expired_event) {
-                    if (!self->exception) {
-                        //  check if connection is dead
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ check if connection is dead", self->log_prefix);
-                        check_if_connection_is_dead (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  send PING
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ send PING",
-                                self->log_prefix);
-                        zperf_msg_set_id (self->message, ZPERF_MSG_PING);
-                        zperf_msg_send (self->message, self->dealer);
-                    }
-                }
-                else
-                if (self->event == ping_ok_event) {
-                    if (!self->exception) {
-                        //  client is connected
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
-                        client_is_connected (&self->client);
-                    }
-                }
-                else
-                if (self->event == error_event) {
-                    if (!self->exception) {
-                        //  check status code
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ check status code", self->log_prefix);
-                        check_status_code (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  terminate
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ terminate", self->log_prefix);
-                        self->fsm_stopped = true;
-                    }
-                }
-                else
-                if (self->event == exception_event) {
-                }
-                else {
-                    //  Handle unexpected protocol events
-                    if (!self->exception) {
-                        //  signal internal error
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ signal internal error", self->log_prefix);
-                        signal_internal_error (&self->client);
-                    }
-                    if (!self->exception) {
-                        //  terminate
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ terminate", self->log_prefix);
-                        self->fsm_stopped = true;
-                    }
-                }
-                break;
-
-            case expect_goodbye_ok_state:
                 if (self->event == goodbye_ok_event) {
                     if (!self->exception) {
                         //  signal success
@@ -1003,6 +709,214 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
+                if (self->event == expired_event) {
+                    if (!self->exception) {
+                        //  check if connection is dead
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ check if connection is dead", self->log_prefix);
+                        check_if_connection_is_dead (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send PING
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send PING",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_PING);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
+                }
+                else
+                if (self->event == ping_ok_event) {
+                    if (!self->exception) {
+                        //  client is connected
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ client is connected", self->log_prefix);
+                        client_is_connected (&self->client);
+                    }
+                }
+                else
+                if (self->event == error_event) {
+                    if (!self->exception) {
+                        //  check status code
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ check status code", self->log_prefix);
+                        check_status_code (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->fsm_stopped = true;
+                    }
+                }
+                else
+                if (self->event == exception_event) {
+                }
+                else {
+                    //  Handle unexpected protocol events
+                    if (!self->exception) {
+                        //  signal internal error
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal internal error", self->log_prefix);
+                        signal_internal_error (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->fsm_stopped = true;
+                    }
+                }
+                break;
+
+            case have_perf_state:
+                if (self->event == request_borc_event) {
+                    if (!self->exception) {
+                        //  set socket request
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ set socket request", self->log_prefix);
+                        set_socket_request (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send SOCKET
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send SOCKET",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_SOCKET);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
+                }
+                else
+                if (self->event == socket_ok_event) {
+                    if (!self->exception) {
+                        //  set socket request
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ set socket request", self->log_prefix);
+                        set_socket_request (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  signal socket request
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal socket request", self->log_prefix);
+                        signal_socket_request (&self->client);
+                    }
+                }
+                else
+                if (self->event == request_measure_event) {
+                    if (!self->exception) {
+                        //  set measurement request
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ set measurement request", self->log_prefix);
+                        set_measurement_request (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send MEASURE
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send MEASURE",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_MEASURE);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
+                }
+                else
+                if (self->event == result_event) {
+                    if (!self->exception) {
+                        //  set results
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ set results", self->log_prefix);
+                        set_results (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  signal results
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal results", self->log_prefix);
+                        signal_results (&self->client);
+                    }
+                }
+                else
+                if (self->event == create_perf_event) {
+                    if (!self->exception) {
+                        //  set perf stype
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ set perf stype", self->log_prefix);
+                        set_perf_stype (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send CREATE
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send CREATE",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_CREATE);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
+                }
+                else
+                if (self->event == request_lookup_event) {
+                    if (!self->exception) {
+                        //  set perf ident
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ set perf ident", self->log_prefix);
+                        set_perf_ident (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send LOOKUP
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send LOOKUP",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_LOOKUP);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
+                }
+                else
+                if (self->event == perf_ok_event) {
+                    if (!self->exception) {
+                        //  remember perf
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ remember perf", self->log_prefix);
+                        remember_perf (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  signal got perf
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal got perf", self->log_prefix);
+                        signal_got_perf (&self->client);
+                    }
+                    if (!self->exception)
+                        self->state = have_perf_state;
+                }
+                else
+                if (self->event == request_info_event) {
+                    if (!self->exception) {
+                        //  set info request
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ set info request", self->log_prefix);
+                        set_info_request (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  send INFO
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ send INFO",
+                                self->log_prefix);
+                        zperf_msg_set_id (self->message, ZPERF_MSG_INFO);
+                        zperf_msg_send (self->message, self->dealer);
+                    }
+                }
+                else
+                if (self->event == info_ok_event) {
+                    if (!self->exception) {
+                        //  remember info
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ remember info", self->log_prefix);
+                        remember_info (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  signal got info
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal got info", self->log_prefix);
+                        signal_got_info (&self->client);
+                    }
+                }
+                else
                 if (self->event == destructor_event) {
                     if (!self->exception) {
                         //  send GOODBYE
@@ -1012,8 +926,21 @@ s_client_execute (s_client_t *self, event_t event)
                         zperf_msg_set_id (self->message, ZPERF_MSG_GOODBYE);
                         zperf_msg_send (self->message, self->dealer);
                     }
-                    if (!self->exception)
-                        self->state = expect_goodbye_ok_state;
+                }
+                else
+                if (self->event == goodbye_ok_event) {
+                    if (!self->exception) {
+                        //  signal success
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal success", self->log_prefix);
+                        signal_success (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->fsm_stopped = true;
+                    }
                 }
                 else
                 if (self->event == expired_event) {
@@ -1061,6 +988,18 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else {
                     //  Handle unexpected protocol events
+                    if (!self->exception) {
+                        //  signal internal error
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal internal error", self->log_prefix);
+                        signal_internal_error (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->fsm_stopped = true;
+                    }
                 }
                 break;
 
@@ -1074,8 +1013,21 @@ s_client_execute (s_client_t *self, event_t event)
                         zperf_msg_set_id (self->message, ZPERF_MSG_GOODBYE);
                         zperf_msg_send (self->message, self->dealer);
                     }
-                    if (!self->exception)
-                        self->state = expect_goodbye_ok_state;
+                }
+                else
+                if (self->event == goodbye_ok_event) {
+                    if (!self->exception) {
+                        //  signal success
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal success", self->log_prefix);
+                        signal_success (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  terminate
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ terminate", self->log_prefix);
+                        self->fsm_stopped = true;
+                    }
                 }
                 else
                 if (self->event == expired_event) {
@@ -1201,24 +1153,29 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         zsock_recv (self->cmdpipe, "i", &self->verbose);
     else
     if (streq (method, "CREATE PERF")) {
-        zstr_free (&self->args.mtype);
         zstr_free (&self->args.stype);
-        zsock_recv (self->cmdpipe, "ss", &self->args.mtype, &self->args.stype);
+        zsock_recv (self->cmdpipe, "s", &self->args.stype);
         s_client_execute (self, create_perf_event);
     }
     else
-    if (streq (method, "SET SOCKET")) {
+    if (streq (method, "REQUEST BORC")) {
         zstr_free (&self->args.ident);
-        zstr_free (&self->args.action);
+        zstr_free (&self->args.borc);
         zstr_free (&self->args.endpoint);
-        zsock_recv (self->cmdpipe, "sss", &self->args.ident, &self->args.action, &self->args.endpoint);
-        s_client_execute (self, set_socket_event);
+        zsock_recv (self->cmdpipe, "sss", &self->args.ident, &self->args.borc, &self->args.endpoint);
+        s_client_execute (self, request_borc_event);
     }
     else
-    if (streq (method, "SET MEASUREMENT")) {
+    if (streq (method, "REQUEST MEASURE")) {
         zstr_free (&self->args.ident);
         zsock_recv (self->cmdpipe, "s484", &self->args.ident, &self->args.nmsgs, &self->args.msgsize, &self->args.timeout);
-        s_client_execute (self, set_measurement_event);
+        s_client_execute (self, request_measure_event);
+    }
+    else
+    if (streq (method, "LAUNCH MEASURE")) {
+        zstr_free (&self->args.ident);
+        zsock_recv (self->cmdpipe, "s484", &self->args.ident, &self->args.nmsgs, &self->args.msgsize, &self->args.timeout);
+        s_client_execute (self, launch_measure_event);
     }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
@@ -1333,7 +1290,8 @@ struct _zperf_client_t {
     zactor_t *actor;            //  Client actor
     zsock_t *msgpipe;           //  Pipe for async message flow
     bool connected;             //  Client currently connected or not
-    char *ident;                //  Returned by actor reply
+    uint64_t ident;             //  Returned by actor reply
+    char *endpoint;             //  Returned by actor reply
     uint32_t nmsgs;             //  Returned by actor reply
     uint64_t msgsize;           //  Returned by actor reply
     uint32_t timeout;           //  Returned by actor reply
@@ -1384,7 +1342,7 @@ zperf_client_destroy (zperf_client_t **self_p)
         }
         zactor_destroy (&self->actor);
         zsock_destroy (&self->msgpipe);
-        zstr_free (&self->ident);
+        zstr_free (&self->endpoint);
         zstr_free (&self->reason);
         free (self);
         *self_p = NULL;
@@ -1455,6 +1413,15 @@ s_accept_reply (zperf_client_t *self, ...)
         char *filter = va_arg (args, char *);
         while (filter) {
             if (streq (reply, filter)) {
+                if (streq (reply, "PERF IDENT")) {
+                    zsock_recv (self->actor, "8", &self->ident);
+                }
+                else
+                if (streq (reply, "PERF ENDPOINT")) {
+                    zstr_free (&self->endpoint);
+                    zsock_recv (self->actor, "s", &self->endpoint);
+                }
+                else
                 if (streq (reply, "RESULT")) {
                     zstr_free (&self->ident);
                     zsock_recv (self->actor, "s4848848", &self->ident, &self->nmsgs, &self->msgsize, &self->timeout, &self->time_us, &self->cpu_us, &self->noos, &self->nbytes);
@@ -1485,51 +1452,74 @@ s_accept_reply (zperf_client_t *self, ...)
 
 
 //  ---------------------------------------------------------------------------
-//  Request a perf to be created. Returned perf ident is needed for any subsequent
-//  set_socket or set_measurement method calls .
+//  Request a perf to be created with a given socket type. This is a synchronous
+//  call as the client will wait for confirmation. If successful,
+//  zperf_client_ident() can be used to retrieve the perf ident. This ident is
+//  required for subsequent calls.
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_create_perf (zperf_client_t *self, const char *mtype, const char *stype)
+zperf_client_create_perf (zperf_client_t *self, const char *stype)
 {
     assert (self);
 
-    zsock_send (self->actor, "sss", "CREATE PERF", mtype, stype);
-    if (s_accept_reply (self, "SUCCESS", "FAILURE", NULL))
+    zsock_send (self->actor, "ss", "CREATE PERF", stype);
+    if (s_accept_reply (self, "PERF IDENT", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
 
 
 //  ---------------------------------------------------------------------------
-//  Request that a measurement socket be opened on the given endpoint where action
-//  is bind or connect. The ident comes from a create_perf() call.
+//  Request that a measurement socket be attached to an endpoint. The attachment is
+//  either "bind" or "connect" (borc). The ident comes from a create_perf() call. A
+//  "connect" may be repeated on the same endpoint and a "bind" may have a wild card
+//  for the port. This is a synchronous call. The endpoint is available after a
+//  successful completion.
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_set_socket (zperf_client_t *self, const char *ident, const char *action, const char *endpoint)
+zperf_client_request_borc (zperf_client_t *self, const char *ident, const char *borc, const char *endpoint)
 {
     assert (self);
 
-    zsock_send (self->actor, "ssss", "SET SOCKET", ident, action, endpoint);
-    if (s_accept_reply (self, "SUCCESS", "FAILURE", NULL))
+    zsock_send (self->actor, "ssss", "REQUEST BORC", ident, borc, endpoint);
+    if (s_accept_reply (self, "PERF ENDPOINT", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
 
 
 //  ---------------------------------------------------------------------------
-//  Set a measurement to be performed. The ident comes from a create_perf() call.
-//  Calling this before successfully setting a socket is pointless.
+//  Request a perf measure. This is a synchronous call. The fields in RESULT will be
+//  available on success.
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_set_measurement (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
+zperf_client_request_measure (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
 {
     assert (self);
 
-    zsock_send (self->actor, "ss484", "SET MEASUREMENT", ident, nmsgs, msgsize, timeout);
-    if (s_accept_reply (self, "SUCCESS", "FAILURE", NULL))
+    zsock_send (self->actor, "ss484", "REQUEST MEASURE", ident, nmsgs, msgsize, timeout);
+    if (s_accept_reply (self, "RESULT", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Request a perf measure. This is an asynchronous call. A message matching the
+//  fields in RESULT will be provided by the msgpipe when a successful measure is
+//  returned.
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int
+zperf_client_launch_measure (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
+{
+    assert (self);
+
+    zsock_send (self->actor, "ss484", "LAUNCH MEASURE", ident, nmsgs, msgsize, timeout);
+    if (s_accept_reply (self, "RESULT", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }
@@ -1538,7 +1528,7 @@ zperf_client_set_measurement (zperf_client_t *self, const char *ident, uint32_t 
 //  ---------------------------------------------------------------------------
 //  Return last received ident
 
-const char *
+uint64_t
 zperf_client_ident (zperf_client_t *self)
 {
     assert (self);
@@ -1547,15 +1537,26 @@ zperf_client_ident (zperf_client_t *self)
 
 
 //  ---------------------------------------------------------------------------
-//  Return last received ident and transfer ownership to caller
+//  Return last received endpoint
 
 const char *
-zperf_client_get_ident (zperf_client_t *self)
+zperf_client_endpoint (zperf_client_t *self)
 {
     assert (self);
-    char * ident = self->ident;
-    self->ident = NULL;
-    return ident;
+    return self->endpoint;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received endpoint and transfer ownership to caller
+
+const char *
+zperf_client_get_endpoint (zperf_client_t *self)
+{
+    assert (self);
+    char * endpoint = self->endpoint;
+    self->endpoint = NULL;
+    return endpoint;
 }
 
 

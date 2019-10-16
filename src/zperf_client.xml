@@ -37,10 +37,10 @@
   <state name = "connected" inherit = "defaults">
 
     <event name = "create perf">
-      <action name = "set perf attributes" />
+      <action name = "set perf stype" />
       <action name = "send" message = "CREATE" />
     </event>
-    <event name = "ask lookup">
+    <event name = "request lookup">
       <action name = "set perf ident" />
       <action name = "send" message = "LOOKUP" />
     </event>
@@ -49,7 +49,7 @@
       <action name = "signal got perf" />
     </event>
 
-    <event name = "ask info">
+    <event name = "request info">
       <action name = "set info request" />
       <action name = "send" message = "INFO" />
     </event>
@@ -63,7 +63,7 @@
 
   <state name = "have perf" inherit = "connected">
 
-    <event name = "set socket">
+    <event name = "request borc">
       <action name = "set socket request" />
       <action name = "send" message = "SOCKET" />
     </event>
@@ -72,7 +72,7 @@
       <action name = "signal socket request" />
     </event>
 
-    <event name = "set measurement">
+    <event name = "request measure">
       <action name = "set measurement request" />
       <action name = "send" message = "MEASURE" />
     </event>
@@ -114,42 +114,75 @@
 
 
 
-  <!-- API methods -->
+  <!-- API methods.  Their names MUST match an event! -->
 
   <method name = "create perf" return = "status">
-    Request a perf to be created.  Returned perf ident is needed for
-    any subsequent set_socket or set_measurement method calls .
+    Request a perf to be created with a given socket type.
 
-    <field name = "mtype" type = "string">Measurement type</field>
+    This is a synchronous call as the client will wait for
+    confirmation.
+
+    If successful, zperf_client_ident() can be used to retrieve the
+    perf ident.  This ident is required for subsequent calls.
+
     <field name = "stype" type = "string">Socket type</field>
 
-    <accept reply = "SUCCESS" />
+    <accept reply = "PERF IDENT" />
     <accept reply = "FAILURE" />
   </method>
 
-  <method name = "set socket" return = "status">
-    Request that a measurement socket be opened on the given endpoint
-    where action is bind or connect.  The ident comes from a
-    create_perf() call.
+  <reply name = "PERF IDENT">
+    <field name = "ident" type = "number" size = "8" />
+  </reply>
+
+  <method name = "request borc" return = "status">
+    Request that a measurement socket be attached to an endpoint.
+
+    The attachment is either "bind" or "connect" (borc).  The ident
+    comes from a create_perf() call.  A "connect" may be repeated on
+    the same endpoint and a "bind" may have a wild card for the port.
+
+    This is a synchronous call.
+
+    The endpoint is available after a successful completion.
 
     <field name = "ident"    type = "string">ID for the perf instance</field>
-    <field name = "action" type = "string" >The socket action (bind or connect)</field>
+    <field name = "borc" type = "string" >The socket attachment type ("bind" or "connect")</field>
     <field name = "endpoint" type = "string" >The endpoint address in ZeroMQ format</field>
 
-    <accept reply = "SUCCESS" />
+    <accept reply = "PERF ENDPOINT" />
     <accept reply = "FAILURE" />
   </method>
+  <reply name = "PERF ENDPOINT">
+    <field name = "endpoint" type = "string" />
+  </reply>
 
-  <method name = "set measurement" return = "status">
-    Set a measurement to be performed.  The ident comes from a
-    create_perf() call.  Calling this before successfully setting a
-    socket is pointless.
+  <method name = "request measure" return = "status">
+    Request a perf measure.
+
+    This is a synchronous call.  The fields in RESULT will be
+    available on success.
 
     <field name = "ident"    type = "string">ID for the perf instance</field>
     <field name = "nmsgs" type = "number" size = "4" >Number of messages to process</field>
     <field name = "msgsize" type = "number" size = "8" >Size of messages to process</field>
     <field name = "timeout" type = "number" size = "4" >Timeout in msec after no activity</field>
-    <accept reply = "SUCCESS" />
+    <accept reply = "RESULT" />
+    <accept reply = "FAILURE" />
+  </method>
+
+  <method name = "launch measure" return = "status">
+    Request a perf measure.
+
+    This is an asynchronous call.  A message matching the fields in
+    RESULT will be provided by the msgpipe when a successful measure
+    is returned.
+
+    <field name = "ident"    type = "string">ID for the perf instance</field>
+    <field name = "nmsgs" type = "number" size = "4" >Number of messages to process</field>
+    <field name = "msgsize" type = "number" size = "8" >Size of messages to process</field>
+    <field name = "timeout" type = "number" size = "4" >Timeout in msec after no activity</field>
+    <accept reply = "RESULT" />
     <accept reply = "FAILURE" />
   </method>
 
@@ -165,7 +198,6 @@
     <accept reply = "SUCCESS" />
     <accept reply = "FAILURE" />
   </reply>
-
   <reply name = "SUCCESS">
     <field name = "status" type = "integer" />
   </reply>
