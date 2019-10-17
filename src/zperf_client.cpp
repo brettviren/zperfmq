@@ -193,6 +193,8 @@ client_is_connected (client_t *self)
 static void
 set_perf_stype (client_t *self)
 {
+    zsys_debug("stype is %d", self->args->stype);
+    zperf_msg_set_stype(self->message, self->args->stype);
 }
 
 
@@ -213,6 +215,8 @@ set_perf_ident (client_t *self)
 static void
 remember_perf (client_t *self)
 {
+    // note: not actually remembering anything, it's up to caller to hold on to ident.
+    zsys_debug("got perf 0x%lX", zperf_msg_ident(self->message));
 }
 
 
@@ -223,6 +227,9 @@ remember_perf (client_t *self)
 static void
 signal_got_perf (client_t *self)
 {
+    uint64_t ident = zperf_msg_ident (self->message);
+    zsock_send (self->cmdpipe, "s8s", "GOT PERF", ident);
+
 }
 
 
