@@ -5,9 +5,9 @@ digraph "zperf_client" {
  "have perf" -> "connected" [style=dotted,arrowhead=empty]
 
  "start" [shape = "doublecircle"];
- "start connect" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">connect</font></td></tr><tr><td align="left" port="r3">connect to server endpoint</td></tr><tr><td align="left" port="r3">set nickname</td></tr><tr><td align="left" port="r3">use connect timeout</td></tr><tr><td align="left" port="r3">send (hello)</td></tr></table>>];
- "start" -> "start connect";
- "start connect" -> "expect hello ok";
+ "start say hello" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">say hello</font></td></tr><tr><td align="left" port="r3">set nickname</td></tr><tr><td align="left" port="r3">use connect timeout</td></tr><tr><td align="left" port="r3">connect to server</td></tr><tr><td align="left" port="r3">send (hello)</td></tr></table>>];
+ "start" -> "start say hello";
+ "start say hello" -> "expect hello ok";
  "start bad endpoint" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">bad endpoint</font></td></tr><tr><td align="left" port="r3">signal bad endpoint</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
  "start" -> "start bad endpoint";
  "start bad endpoint" -> "start";

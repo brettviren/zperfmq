@@ -28,7 +28,7 @@ typedef enum {
 
 typedef enum {
     NULL_event = 0,
-    connect_event = 1,
+    say_hello_event = 1,
     bad_endpoint_event = 2,
     hello_ok_event = 3,
     create_perf_event = 4,
@@ -62,7 +62,7 @@ s_state_name [] = {
 static const char *
 s_event_name [] = {
     "(NONE)",
-    "connect",
+    "say_hello",
     "bad_endpoint",
     "HELLO_OK",
     "create_perf",
@@ -90,10 +90,11 @@ s_event_name [] = {
 
 //  These are the different method arguments we manage automatically
 struct _client_args_t {
-    char *stype;
-    char *ident;
-    char *borc;
+    char *nickname;
     char *endpoint;
+    uint32_t stype;
+    uint64_t ident;
+    char *borc;
     uint32_t nmsgs;
     uint64_t msgsize;
     uint32_t timeout;
@@ -139,11 +140,11 @@ static int
 static void
     s_satisfy_pedantic_compilers (void);
 static void
-    connect_to_server_endpoint (client_t *self);
-static void
     set_nickname (client_t *self);
 static void
     use_connect_timeout (client_t *self);
+static void
+    connect_to_server (client_t *self);
 static void
     signal_bad_endpoint (client_t *self);
 static void
@@ -227,10 +228,9 @@ s_client_destroy (s_client_t **self_p)
     assert (self_p);
     if (*self_p) {
         s_client_t *self = *self_p;
-        zstr_free (&self->args.stype);
-        zstr_free (&self->args.ident);
-        zstr_free (&self->args.borc);
+        zstr_free (&self->args.nickname);
         zstr_free (&self->args.endpoint);
+        zstr_free (&self->args.borc);
         client_terminate (&self->client);
         zperf_msg_destroy (&self->message);
         zsock_destroy (&self->msgpipe);
@@ -440,13 +440,7 @@ s_client_execute (s_client_t *self, event_t event)
         }
         switch (self->state) {
             case start_state:
-                if (self->event == connect_event) {
-                    if (!self->exception) {
-                        //  connect to server endpoint
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ connect to server endpoint", self->log_prefix);
-                        connect_to_server_endpoint (&self->client);
-                    }
+                if (self->event == say_hello_event) {
                     if (!self->exception) {
                         //  set nickname
                         if (self->verbose)
@@ -458,6 +452,12 @@ s_client_execute (s_client_t *self, event_t event)
                         if (self->verbose)
                             zsys_debug ("%s:         $ use connect timeout", self->log_prefix);
                         use_connect_timeout (&self->client);
+                    }
+                    if (!self->exception) {
+                        //  connect to server
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ connect to server", self->log_prefix);
+                        connect_to_server (&self->client);
                     }
                     if (!self->exception) {
                         //  send HELLO
@@ -1152,30 +1152,28 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     if (streq (method, "SET VERBOSE"))
         zsock_recv (self->cmdpipe, "i", &self->verbose);
     else
+    if (streq (method, "SAY HELLO")) {
+        zstr_free (&self->args.nickname);
+        zstr_free (&self->args.endpoint);
+        zsock_recv (self->cmdpipe, "ss", &self->args.nickname, &self->args.endpoint);
+        s_client_execute (self, say_hello_event);
+    }
+    else
     if (streq (method, "CREATE PERF")) {
-        zstr_free (&self->args.stype);
-        zsock_recv (self->cmdpipe, "s", &self->args.stype);
+        zsock_recv (self->cmdpipe, "4", &self->args.stype);
         s_client_execute (self, create_perf_event);
     }
     else
     if (streq (method, "REQUEST BORC")) {
-        zstr_free (&self->args.ident);
         zstr_free (&self->args.borc);
         zstr_free (&self->args.endpoint);
-        zsock_recv (self->cmdpipe, "sss", &self->args.ident, &self->args.borc, &self->args.endpoint);
+        zsock_recv (self->cmdpipe, "8ss", &self->args.ident, &self->args.borc, &self->args.endpoint);
         s_client_execute (self, request_borc_event);
     }
     else
     if (streq (method, "REQUEST MEASURE")) {
-        zstr_free (&self->args.ident);
-        zsock_recv (self->cmdpipe, "s484", &self->args.ident, &self->args.nmsgs, &self->args.msgsize, &self->args.timeout);
+        zsock_recv (self->cmdpipe, "4484", &self->args.ident, &self->args.nmsgs, &self->args.msgsize, &self->args.timeout);
         s_client_execute (self, request_measure_event);
-    }
-    else
-    if (streq (method, "LAUNCH MEASURE")) {
-        zstr_free (&self->args.ident);
-        zsock_recv (self->cmdpipe, "s484", &self->args.ident, &self->args.nmsgs, &self->args.msgsize, &self->args.timeout);
-        s_client_execute (self, launch_measure_event);
     }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
@@ -1423,8 +1421,7 @@ s_accept_reply (zperf_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "RESULT")) {
-                    zstr_free (&self->ident);
-                    zsock_recv (self->actor, "s4848848", &self->ident, &self->nmsgs, &self->msgsize, &self->timeout, &self->time_us, &self->cpu_us, &self->noos, &self->nbytes);
+                    zsock_recv (self->actor, "44848848", &self->ident, &self->nmsgs, &self->msgsize, &self->timeout, &self->time_us, &self->cpu_us, &self->noos, &self->nbytes);
                 }
                 else
                 if (streq (reply, "SUCCESS")) {
@@ -1452,6 +1449,22 @@ s_accept_reply (zperf_client_t *self, ...)
 
 
 //  ---------------------------------------------------------------------------
+//  Connect to and say hello to server at endpoint, providing our nickname.
+//  Returns >= 0 if successful, -1 if interrupted.
+
+int
+zperf_client_say_hello (zperf_client_t *self, const char *nickname, const char *endpoint)
+{
+    assert (self);
+
+    zsock_send (self->actor, "sss", "SAY HELLO", nickname, endpoint);
+    if (s_accept_reply (self, "CONNECTED", "FAILURE", NULL))
+        return -1;              //  Interrupted or timed-out
+    return self->status;
+}
+
+
+//  ---------------------------------------------------------------------------
 //  Request a perf to be created with a given socket type. This is a synchronous
 //  call as the client will wait for confirmation. If successful,
 //  zperf_client_ident() can be used to retrieve the perf ident. This ident is
@@ -1459,11 +1472,11 @@ s_accept_reply (zperf_client_t *self, ...)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_create_perf (zperf_client_t *self, const char *stype)
+zperf_client_create_perf (zperf_client_t *self, uint32_t stype)
 {
     assert (self);
 
-    zsock_send (self->actor, "ss", "CREATE PERF", stype);
+    zsock_send (self->actor, "s4", "CREATE PERF", stype);
     if (s_accept_reply (self, "PERF IDENT", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -1479,11 +1492,11 @@ zperf_client_create_perf (zperf_client_t *self, const char *stype)
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_request_borc (zperf_client_t *self, const char *ident, const char *borc, const char *endpoint)
+zperf_client_request_borc (zperf_client_t *self, uint64_t ident, const char *borc, const char *endpoint)
 {
     assert (self);
 
-    zsock_send (self->actor, "ssss", "REQUEST BORC", ident, borc, endpoint);
+    zsock_send (self->actor, "s8ss", "REQUEST BORC", ident, borc, endpoint);
     if (s_accept_reply (self, "PERF ENDPOINT", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -1496,29 +1509,11 @@ zperf_client_request_borc (zperf_client_t *self, const char *ident, const char *
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_request_measure (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
+zperf_client_request_measure (zperf_client_t *self, uint32_t ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
 {
     assert (self);
 
-    zsock_send (self->actor, "ss484", "REQUEST MEASURE", ident, nmsgs, msgsize, timeout);
-    if (s_accept_reply (self, "RESULT", "FAILURE", NULL))
-        return -1;              //  Interrupted or timed-out
-    return self->status;
-}
-
-
-//  ---------------------------------------------------------------------------
-//  Request a perf measure. This is an asynchronous call. A message matching the
-//  fields in RESULT will be provided by the msgpipe when a successful measure is
-//  returned.
-//  Returns >= 0 if successful, -1 if interrupted.
-
-int
-zperf_client_launch_measure (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
-{
-    assert (self);
-
-    zsock_send (self->actor, "ss484", "LAUNCH MEASURE", ident, nmsgs, msgsize, timeout);
+    zsock_send (self->actor, "s4484", "REQUEST MEASURE", ident, nmsgs, msgsize, timeout);
     if (s_accept_reply (self, "RESULT", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;

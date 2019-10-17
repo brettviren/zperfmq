@@ -63,27 +63,52 @@ client_terminate (client_t *self)
 void
 zperf_client_test (bool verbose)
 {
-    printf (" * zperf_client: ");
-    if (verbose)
-        printf ("\n");
+    zsys_init();
+    zsys_debug ("test zperf_client: ");
 
     //  @selftest
-    // TODO: fill this out
+    zactor_t *server = zactor_new (zperf_server, (char*)"zperf-server");
+    assert(server);
+    if (verbose) {
+        zstr_send (server, "VERBOSE");
+    }
+    zsys_debug("sending BIND to server pipe");
+    zstr_sendx (server, "BIND", "tcp://127.0.0.1:5678", NULL);
+
+
     zperf_client_t *client = zperf_client_new ();
+    assert(client);
     zperf_client_set_verbose(client, verbose);
+
+    int rc = 0;
+
+    rc = zperf_client_say_hello(client, "zperf-client", "tcp://127.0.0.1:5678");
+    assert (rc == 0);
+
+    rc = zperf_client_create_perf(client, ZMQ_REQ);
+    assert(rc == 0);
+    uint64_t yodel = zperf_client_ident(client);
+    assert (yodel > 0);
+
+    rc = zperf_client_create_perf(client, ZMQ_REP);
+    assert(rc == 0);
+    uint64_t echo = zperf_client_ident(client);
+    assert (echo > 0);    
+
+    rc = zperf_client_request_borc(client, echo, "BIND", "tcp://127.0.0.1:*");
+    assert(rc == 0);
+    const char* ep = zperf_client_endpoint(client);
+
+    rc = zperf_client_request_borc(client, yodel, "CONNECT", ep);
+    assert(rc == 0);
+
+    
+    
+
     zperf_client_destroy (&client);
+    zactor_destroy (&server);
     //  @end
     printf ("OK\n");
-}
-
-
-//  ---------------------------------------------------------------------------
-//  connect_to_server_endpoint
-//
-
-static void
-connect_to_server_endpoint (client_t *self)
-{
 }
 
 
@@ -94,6 +119,8 @@ connect_to_server_endpoint (client_t *self)
 static void
 set_nickname (client_t *self)
 {
+    zsys_debug("client nickname is %s", self->args->nickname);
+    zperf_msg_set_nickname(self->message, self->args->nickname);
 }
 
 
@@ -104,6 +131,21 @@ set_nickname (client_t *self)
 static void
 use_connect_timeout (client_t *self)
 {
+    engine_set_timeout (self, self->args->timeout);
+}
+
+
+//  ---------------------------------------------------------------------------
+//  connect_to_server
+//
+
+static void
+connect_to_server (client_t *self)
+{
+    if (zsock_connect (self->dealer, "%s", self->args->endpoint)) {
+        engine_set_exception (self, bad_endpoint_event);
+        zsys_warning ("could not connect to %s", self->args->endpoint);
+    }
 }
 
 
@@ -114,6 +156,7 @@ use_connect_timeout (client_t *self)
 static void
 signal_bad_endpoint (client_t *self)
 {
+    zsock_send (self->cmdpipe, "sis", "FAILURE", -1, "Bad server endpoint");
 }
 
 
@@ -124,6 +167,8 @@ signal_bad_endpoint (client_t *self)
 static void
 signal_connected (client_t *self)
 {
+    const char *nickname = zperf_msg_nickname (self->message);
+    zsock_send (self->cmdpipe, "sis", "CONNECTED", 0, nickname);
 }
 
 
@@ -134,6 +179,10 @@ signal_connected (client_t *self)
 static void
 client_is_connected (client_t *self)
 {
+    // fixme: replicate hydra's heartbeat
+    // self->retries = 0;
+    // engine_set_connected (self, true);
+    // engine_set_timeout (self, self->heartbeat_timer);
 }
 
 
@@ -295,3 +344,6 @@ static void
 signal_internal_error (client_t *self)
 {
 }
+
+
+

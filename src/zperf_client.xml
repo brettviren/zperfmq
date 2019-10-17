@@ -14,10 +14,10 @@
   <include filename = "../license.xml" />
 
   <state name = "start">
-    <event name = "connect" next = "expect hello ok">
-      <action name = "connect to server endpoint" />
+    <event name = "say hello" next = "expect hello ok">
       <action name = "set nickname" />
       <action name = "use connect timeout" />
+      <action name = "connect to server" />
       <action name = "send" message = "HELLO" />
     </event>
     <event name = "bad endpoint">
@@ -115,6 +115,13 @@
 
 
   <!-- API methods.  Their names MUST match an event! -->
+  <method name = "say hello" return = "status">
+    Connect to and say hello to server at endpoint, providing our nickname.
+    <field name = "nickname" type = "string" />
+    <field name = "endpoint" type = "string" />
+    <accept reply = "CONNECTED" />
+    <accept reply = "FAILURE" />
+  </method>
 
   <method name = "create perf" return = "status">
     Request a perf to be created with a given socket type.
@@ -125,7 +132,7 @@
     If successful, zperf_client_ident() can be used to retrieve the
     perf ident.  This ident is required for subsequent calls.
 
-    <field name = "stype" type = "string">Socket type</field>
+    <field name = "stype" type = "number" size = "4">Socket type</field>
 
     <accept reply = "PERF IDENT" />
     <accept reply = "FAILURE" />
@@ -146,8 +153,8 @@
 
     The endpoint is available after a successful completion.
 
-    <field name = "ident"    type = "string">ID for the perf instance</field>
-    <field name = "borc" type = "string" >The socket attachment type ("bind" or "connect")</field>
+    <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
+    <field name = "borc"     type = "string" >The socket attachment type ("bind" or "connect")</field>
     <field name = "endpoint" type = "string" >The endpoint address in ZeroMQ format</field>
 
     <accept reply = "PERF ENDPOINT" />
@@ -163,14 +170,15 @@
     This is a synchronous call.  The fields in RESULT will be
     available on success.
 
-    <field name = "ident"    type = "string">ID for the perf instance</field>
-    <field name = "nmsgs" type = "number" size = "4" >Number of messages to process</field>
+    <field name = "ident"   type = "number" size = "4">ID for the perf instance</field>
+    <field name = "nmsgs"   type = "number" size = "4" >Number of messages to process</field>
     <field name = "msgsize" type = "number" size = "8" >Size of messages to process</field>
     <field name = "timeout" type = "number" size = "4" >Timeout in msec after no activity</field>
     <accept reply = "RESULT" />
     <accept reply = "FAILURE" />
   </method>
 
+  <!-- coming real soon now
   <method name = "launch measure" return = "status">
     Request a perf measure.
 
@@ -185,16 +193,17 @@
     <accept reply = "RESULT" />
     <accept reply = "FAILURE" />
   </method>
+  -->
 
   <reply name = "RESULT">
-    <field name = "ident"    type = "string">ID for the perf instance</field>
-    <field name = "nmsgs" type = "number" size = "4">Number of messages</field>
+    <field name = "ident"   type = "number" size = "4">ID for the perf instance</field>
+    <field name = "nmsgs"   type = "number" size = "4">Number of messages</field>
     <field name = "msgsize" type = "number" size = "8">Message size in bytes</field>
     <field name = "timeout" type = "number" size = "4">Timeout in millisec</field>
     <field name = "time_us" type = "number" size = "8">Time elapsed in microseconds</field>
-    <field name = "cpu_us" type = "number" size = "8">CPU time used (user+system) in microseconds</field>
-    <field name = "noos" type = "number" size = "4">Number of out-of-order messages</field>
-    <field name = "nbytes" type = "number" size = "8">Number of bytes processed</field>
+    <field name = "cpu_us"  type = "number" size = "8">CPU time used (user+system) in microseconds</field>
+    <field name = "noos"    type = "number" size = "4">Number of out-of-order messages</field>
+    <field name = "nbytes"  type = "number" size = "8">Number of bytes processed</field>
     <accept reply = "SUCCESS" />
     <accept reply = "FAILURE" />
   </reply>

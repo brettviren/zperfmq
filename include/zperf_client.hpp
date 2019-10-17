@@ -58,13 +58,18 @@ zsock_t *
 bool
     zperf_client_connected (zperf_client_t *self);
 
+//  Connect to and say hello to server at endpoint, providing our nickname.
+//  Returns >= 0 if successful, -1 if interrupted.
+int
+    zperf_client_say_hello (zperf_client_t *self, const char *nickname, const char *endpoint);
+
 //  Request a perf to be created with a given socket type. This is a synchronous
 //  call as the client will wait for confirmation. If successful,
 //  zperf_client_ident() can be used to retrieve the perf ident. This ident is
 //  required for subsequent calls.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_create_perf (zperf_client_t *self, const char *stype);
+    zperf_client_create_perf (zperf_client_t *self, uint32_t stype);
 
 //  Request that a measurement socket be attached to an endpoint. The attachment is
 //  either "bind" or "connect" (borc). The ident comes from a create_perf() call. A
@@ -73,20 +78,13 @@ int
 //  successful completion.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_request_borc (zperf_client_t *self, const char *ident, const char *borc, const char *endpoint);
+    zperf_client_request_borc (zperf_client_t *self, uint64_t ident, const char *borc, const char *endpoint);
 
 //  Request a perf measure. This is a synchronous call. The fields in RESULT will be
 //  available on success.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_request_measure (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
-
-//  Request a perf measure. This is an asynchronous call. A message matching the
-//  fields in RESULT will be provided by the msgpipe when a successful measure is
-//  returned.
-//  Returns >= 0 if successful, -1 if interrupted.
-int
-    zperf_client_launch_measure (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
+    zperf_client_request_measure (zperf_client_t *self, uint32_t ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
 
 //  Return last received ident
 uint64_t
