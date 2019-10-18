@@ -1,0 +1,199 @@
+#+title: Understanding ~zproto~
+
+
+I've played with zproto before ([[https://github.com/brettviren/digrex][digrex]], [[https://github.com/brettviren/daxproto][daxproto]]) and each time
+struggled to fully understand the taxonomy of roles in the generated
+zproto server and client code.  It's not that any part is difficult,
+just that the breadth of the interacting parts is too much to keep in
+my head at once.  It's a testament to the knowledge and patterns that
+have been baked in to zproto templates.  However, for someone climbing
+the learning curve, it's daunting.  This section holds some attempts
+to deconstruct and understand the generated code so that I can more
+easily feed zproto proper XML models.
+
+* Client
+
+The roles relevant to the client are illustrated in the graph below.  They are:
+
+- network :: ZeroMQ transport between /client/ and /server/
+- protocol messages :: defined in the ~codec~ zproto XML file
+- client socket :: a DEALER socket representing the client to the /network/
+- protocol handler :: generated function to handle all /protocol messages/ coming into DEALER
+- protocol event :: defined in client XML, name derived from associated /protocol message/
+- state machine :: generated code to provide state/event/action processing based on client XML
+- action :: a hand-coded function, categorized in three types in the graph based on what, if any, messages the action may cause to send.  
+- async message :: a message sent or received at any time on the /msgpipe/ of the client either to or from /app code/.  App code is provided generated functions to assist in sending and receiving.  The client has generated code to handle incoming messages by converting them to state machine events.
+- app code :: the main application code constructing/destructing the client and calling its API methods.
+- command message :: a message embodying a request for or reply from a client command (aka method).  These messages are passed through the /cmdpipe/ and the client has generated code to convert incoming command messages to events (of category "method").  Actions may explicitly send a command message reply, such as to signal success or failure of a previously initiated method.
+
+
+#+begin_src dot :cmd dot : cmdline -Tsvg :file deconstruct-client.svg
+  digraph sm {
+          // cloud
+          node[shape=tripleoctagon]
+          network
+
+            // messages
+            node[shape=ellipse]
+            {rank=same;
+            protocol_message_in[label="protocol\nmessage\n(from server)"]
+            protocol_message_out[label="protocol\nmessage\n(to server)"]
+            }
+            command_message_request[label="command\nmessage\nrequest"]
+            async_message_in[label="async\nmessage\nin"]
+            {rank=same;
+            command_message_reply[label="command\nmessage\nreply"]
+            async_message_out[label="async\nmessage\nout"]
+            }
+            // sockets
+            node[shape=record]
+            dealer[label="{{<i>in|<o>out}|{DEALER\nsocket}|{<r>recv|<s>send}}"]
+
+            // engine functions
+            node[shape=box, color="blue"]
+            handle_protocol[label="protocol handler"]
+            handle_cmdpipe[label="cmdpipe handler"]
+            handle_msgpipe[label="msgpipe handler"]
+            client_recv[label="client_recv()"]
+            api_method[label="api_command()"]
+            api_message[label="api_message()"]
+            // events
+            node[shape=diamond]
+            protocol_event[label="protocol\nevent"]
+            method_event[label="method\nevent"]
+
+            // sm
+            node[shape="octagon"]
+            state_machine[label="state\nmachine"]
+
+            // actions
+            node[shape="box", color="green"]
+            protocol_send[label="action\nprotocol send"]
+            cmdpipe_send[label="action\ncmdpipe send"]
+            msgpipe_send[label="action\nmsgpipe send"]
+
+            node[shape="tab"]
+            app_code[label="Application\n(app) code"]
+
+            // edges
+            network->dealer:i
+            network->dealer:o[dir=back]
+            dealer:r->protocol_message_in
+            protocol_message_in->handle_protocol->protocol_event->state_machine
+            api_method->command_message_request->handle_cmdpipe
+            state_machine->method_event->handle_cmdpipe[dir=back]
+
+
+
+            state_machine->protocol_send
+
+            dealer:s->protocol_message_out->protocol_send[dir=back]
+
+
+            state_machine->cmdpipe_send->command_message_reply->api_method
+            state_machine->msgpipe_send->async_message_out->client_recv->app_code
+            protocol_message_out->handle_msgpipe[dir=back]
+
+            app_code->api_method[dir=both]
+            app_code->api_message->async_message_in->handle_msgpipe
+
+  }
+#+end_src
+
+#+RESULTS:
+[[file:deconstruct-client.svg]]
+
+
+** Modeling a client
+
+Modeling a zproto client is done by providing an XML file for the
+client and another for protocol messages (which are shared by the
+server model).  A client is composed of several types of information
+
+- a state machine composed of states, events and actions
+- a set of command methods, their fields and possible replies
+- a set of message methods, and their messages to send or receive
+
+*** Names of model elements
+
+Most elements of the model have identifiers or names of type string.
+In the XML they are specified with a ~name~ or other attribute and in
+general are written in lower case and with spaces if multiple words
+are needed.  Message names tend to be capitalized.  The generated code
+will convert case and add underscores as required (eg, to form a
+function name).  In some cases the names of instances of different types must match and this match is insensitive to case and space/underscore.
+
+*** State machine
+
+The state machine is itself not named as it is a singleton in the
+client.  It is composed of a set of states which have events which have actions.
+
+**** States
+
+States are named freely, without the need to match names of other
+types of events.  In the XML, they can be named with spaces and by
+convention lower case.  From them, enum and string labels will be
+generated.  States may inherit from other states which is effectively
+equivalent to duplicating the events (and their actions) of the parent
+in the child.
+
+**** Events
+
+An event must be named to match either a /protocol message/ or a /command
+method/.  A default next state may be specified and if no ~next~
+attribute is given in the ~<event>~ element tag then the current state
+is default.  
+
+**** Actions
+
+An action name may be chosen freely but there are a few reserved names
+(in particular ~send~).  A function stub with a matching name will be generated and the developer will provide its body.  
+
+An action may set a next event for the state machine to execute or an
+action may directly and immediately execute an event.  An action may
+also raise an exception.
+
+Actions may send asynchronous messages to the /msgpipe/, synchronous
+messages to the /cmdpipe/, protocol messages to the DEALER
+
+*** API methods
+
+The model may describe methods which provide a function API to sending
+and receiving message.  A method may exchange a message with either
+the client's /cmdpipe/ or its /msgpipe/.  The /cmdpipe/ carries "picture
+messages" defined in the client XML while the /msgpipe/ carries protocol
+messages defined in the codec XML.  
+
+*** Command methods
+
+A command method provides a synchronous functional interface to the
+asynchronous client actor running in its own thread.  The app code may
+thus control or query the state of the actor without dealing with any
+thread issue nor the tedium of message construction.  
+
+A command method is defined in the client XML with a ~<method>~ element.
+It may include a number of ~<field>~ children which specify the
+arguments to the generated C function as well as the "picture message"
+sent to the client actor.  The ~<method>~ may also defined ~<accept>~ tags
+to specify a ~reply~ attribute which names a ~<reply>~ element holding a
+number of child ~<field>~ elements defining the "picture message" to
+expect.
+
+In some cases a command method may expect a simple "success" or
+"failure" reply while its command actually is interpreted to launch
+some potentially delayed response.  The response may then be collected
+from the /msgpipe/.
+
+*** Protocol methods
+
+Protocol methods provide ways for application code to directly
+communicate with the server via the client's DEALER socket.  They are
+modeled with ~<send>~ and ~<recv>~ elements that name protocol message
+types.  The ~<send>~ also provides a ~method~ attribute which is used to
+generate a name for the C function that holds the sending code.
+
+Note, actions may send to the (backend) /msgpipe/ and the app code
+should then expect messages on the (client end) /msgpipe/.
+
+* Server
+
