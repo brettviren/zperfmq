@@ -30,21 +30,21 @@ digraph "zperf_client" {
  "connected request info" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">request info</font></td></tr><tr><td align="left" port="r3">set info request</td></tr><tr><td align="left" port="r3">send (info)</td></tr></table>>];
  "connected" -> "connected request info";
  "connected request info" -> "connected";
- "connected info ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">info ok</font></td></tr><tr><td align="left" port="r3">remember info</td></tr><tr><td align="left" port="r3">signal got info</td></tr></table>>];
+ "connected info ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">info ok</font></td></tr><tr><td align="left" port="r3">remember info</td></tr><tr><td align="left" port="r3">msg info to caller</td></tr></table>>];
  "connected" -> "connected info ok";
  "connected info ok" -> "connected";
 
  "have perf" [shape = "doublecircle"];
- "have perf request borc" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">request borc</font></td></tr><tr><td align="left" port="r3">set socket request</td></tr><tr><td align="left" port="r3">send (socket)</td></tr></table>>];
+ "have perf request borc" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">request borc</font></td></tr><tr><td align="left" port="r3">set ident</td></tr><tr><td align="left" port="r3">set socket request</td></tr><tr><td align="left" port="r3">send (socket)</td></tr></table>>];
  "have perf" -> "have perf request borc";
  "have perf request borc" -> "have perf";
- "have perf socket ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">socket ok</font></td></tr><tr><td align="left" port="r3">set socket request</td></tr><tr><td align="left" port="r3">signal socket request</td></tr></table>>];
+ "have perf socket ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">socket ok</font></td></tr><tr><td align="left" port="r3">signal socket request</td></tr></table>>];
  "have perf" -> "have perf socket ok";
  "have perf socket ok" -> "have perf";
- "have perf request measure" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">request measure</font></td></tr><tr><td align="left" port="r3">set measurement request</td></tr><tr><td align="left" port="r3">send (measure)</td></tr></table>>];
+ "have perf request measure" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">request measure</font></td></tr><tr><td align="left" port="r3">set ident</td></tr><tr><td align="left" port="r3">set measurement request</td></tr><tr><td align="left" port="r3">send (measure)</td></tr></table>>];
  "have perf" -> "have perf request measure";
  "have perf request measure" -> "have perf";
- "have perf result" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">result</font></td></tr><tr><td align="left" port="r3">set results</td></tr><tr><td align="left" port="r3">signal results</td></tr></table>>];
+ "have perf result" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">result</font></td></tr><tr><td align="left" port="r3">set results</td></tr><tr><td align="left" port="r3">msg results to caller</td></tr></table>>];
  "have perf" -> "have perf result";
  "have perf result" -> "have perf";
 

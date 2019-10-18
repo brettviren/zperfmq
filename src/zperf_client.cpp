@@ -72,9 +72,7 @@ zperf_client_test (bool verbose)
     if (verbose) {
         zstr_send (server, "VERBOSE");
     }
-    zsys_debug("sending BIND to server pipe");
     zstr_sendx (server, "BIND", "tcp://127.0.0.1:5678", NULL);
-
 
     zperf_client_t *client = zperf_client_new ();
     assert(client);
@@ -87,18 +85,23 @@ zperf_client_test (bool verbose)
 
     rc = zperf_client_create_perf(client, ZMQ_REQ);
     assert(rc == 0);
-    uint64_t yodel = zperf_client_ident(client);
-    assert (yodel > 0);
+    char* yodel = zsys_sprintf("%s", zperf_client_ident(client));
+    assert (yodel);
 
     rc = zperf_client_create_perf(client, ZMQ_REP);
     assert(rc == 0);
-    uint64_t echo = zperf_client_ident(client);
-    assert (echo > 0);    
+    char* echo = zsys_sprintf("%s", zperf_client_ident(client));
+    assert (echo);    
+    if (verbose) {
+        zsys_debug("yodel ident is %s", yodel);
+        zsys_debug(" echo ident is %s", echo);
+    }
 
     rc = zperf_client_request_borc(client, echo, "BIND", "tcp://127.0.0.1:*");
     assert(rc == 0);
     const char* ep = zperf_client_endpoint(client);
 
+    zsys_debug("requesting CONNECT for %s to %s", yodel, ep);
     rc = zperf_client_request_borc(client, yodel, "CONNECT", ep);
     assert(rc == 0);
 
@@ -106,7 +109,10 @@ zperf_client_test (bool verbose)
     
 
     zperf_client_destroy (&client);
+    zsys_debug("client destroyed");
     zactor_destroy (&server);
+    zstr_free(&echo);
+    zstr_free(&yodel);    
     //  @end
     printf ("OK\n");
 }
@@ -216,7 +222,8 @@ static void
 remember_perf (client_t *self)
 {
     // note: not actually remembering anything, it's up to caller to hold on to ident.
-    zsys_debug("got perf 0x%lX", zperf_msg_ident(self->message));
+    zsys_debug("remembering perf %s (not actually remembering anything)",
+               zperf_msg_ident(self->message));
 }
 
 
@@ -227,8 +234,8 @@ remember_perf (client_t *self)
 static void
 signal_got_perf (client_t *self)
 {
-    uint64_t ident = zperf_msg_ident (self->message);
-    zsock_send (self->cmdpipe, "s8s", "GOT PERF", ident);
+    const char* ident = zperf_msg_ident (self->message);
+    zsock_send (self->cmdpipe, "ss", "PERF IDENT", ident);
 
 }
 
@@ -264,12 +271,25 @@ signal_got_info (client_t *self)
 
 
 //  ---------------------------------------------------------------------------
+//  set_ident
+//
+
+static void
+set_ident (client_t *self)
+{
+    zperf_msg_set_ident(self->message, self->args->ident);
+}
+
+
+//  ---------------------------------------------------------------------------
 //  set_socket_request
 //
 
 static void
 set_socket_request (client_t *self)
 {
+    zperf_msg_set_borc(self->message, self->args->borc);
+    zperf_msg_set_endpoint(self->message, self->args->endpoint);
 }
 
 
@@ -280,6 +300,8 @@ set_socket_request (client_t *self)
 static void
 signal_socket_request (client_t *self)
 {
+    const char* ep = zperf_msg_endpoint(self->message);
+    zsock_send (self->cmdpipe, "ss", "PERF ENDPOINT", ep);
 }
 
 
@@ -353,4 +375,25 @@ signal_internal_error (client_t *self)
 }
 
 
+
+
+
+//  ---------------------------------------------------------------------------
+//  msg_info_to_caller
+//
+
+static void
+msg_info_to_caller (client_t *self)
+{
+}
+
+
+//  ---------------------------------------------------------------------------
+//  msg_results_to_caller
+//
+
+static void
+msg_results_to_caller (client_t *self)
+{
+}
 

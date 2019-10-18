@@ -43,7 +43,8 @@ struct _server_t {
     zconfig_t *config;          //  Current loaded configuration
 
     // The info about the perfs this server manages.  The key is
-    // simply the memory address and that is returend to the creating
+    // simply a string representation of the memory address of the
+    // perf actor pipe socket and that is returend to the creating
     // client as the "ident".  Any client knowing it may also access
     // the perf.
     // 
@@ -175,16 +176,16 @@ create_perf (client_t *self)
     engine_handle_socket (self->server, actor_socket, s_server_handle_perf);
 
     // this key lets us find the perfinfo from the actor pipe handler
-    void* key = (void*)actor_socket;
-    // zsys_debug("insert 0x%lX", key);
-    int rc = zhashx_insert(self->server->perfinfos, key, pi);
+    char* ident = zsys_sprintf("%lX", actor_socket);
+    int rc = zhashx_insert(self->server->perfinfos, ident, pi);
     assert(rc == 0);
 
     self->server->perfinfo = pi;
 
-    const uint64_t ident = (uint64_t)key;
+
     zperf_msg_set_id(self->message, ZPERF_MSG_PERF_OK);
     zperf_msg_set_ident(self->message, ident);
+    zstr_free(&ident);
 }
 
 
@@ -195,13 +196,10 @@ create_perf (client_t *self)
 static void
 lookup_perf (client_t *self)
 {
-    const uint64_t ident = zperf_msg_ident(self->message);
-
-    const void* key = (const void*)ident;
-    // zsys_debug("lookup 0x%lX", key);
-    perfinfo_t* pi = (perfinfo_t*)zhashx_lookup(self->server->perfinfos, key);
+    const char* ident = zperf_msg_ident(self->message);
+    perfinfo_t* pi = (perfinfo_t*)zhashx_lookup(self->server->perfinfos, ident);
     if (!pi) {
-        zsys_error("Failed to find perfinfo for 0x%lX", ident);
+        zsys_error("Failed to find perfinfo for %s", ident);
         engine_set_exception(self, exception_event);
         return;
     }
@@ -232,8 +230,10 @@ connect_or_bind (client_t *self)
     const char* borc = zperf_msg_borc(self->message);
     const char* ep = zperf_msg_endpoint(self->message);
 
+    zsys_debug("zperf-server:connect_or_bind %s %s", borc, ep);
+
     if (! (streq(borc, "BIND") || streq(borc,"CONNECT"))) {
-        zsys_error("must send BIND or CONNECT for borc");
+        zsys_error("must send BIND or CONNECT for borc, got \"%s\"", borc);
         engine_set_exception(self, exception_event);
         return;
     }
@@ -246,7 +246,7 @@ connect_or_bind (client_t *self)
     int rc = zsock_send(pi->actor, "ss", borc, ep);
     assert(rc == 0);
 
-    zlist_push(pi->waiting, (void*)self);
+    zlist_append(pi->waiting, (void*)self);
     // zsys_debug("%ld waiting", zlist_size(pi->waiting));
 }
 
@@ -277,7 +277,7 @@ start_measure (client_t *self)
     int rc = zsock_send(pi->actor, "si8", measure, nmsgs, msgsize);
     assert(rc == 0);
 
-    zlist_push(pi->waiting, (void*)self);
+    zlist_append(pi->waiting, (void*)self);
 }
 
 static
@@ -302,16 +302,17 @@ static int
 s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
 {
     server_t *self = (server_t *) argument;
-    void* key = (void*)pipe;
-    perfinfo_t* pi = (perfinfo_t*)zhashx_lookup(self->perfinfos, key);
+    char* ident = zsys_sprintf("%lX", pipe);
+    if (engine_verbose(self)) {
+        zsys_debug("zperf-server: handling pipe message from perf %s", ident);
+    }
+    perfinfo_t* pi = (perfinfo_t*)zhashx_lookup(self->perfinfos, ident);
     assert(pi);
+    zstr_free(&ident);
+
     self->perfinfo = pi;
     client_t* client = (client_t*)zlist_pop(pi->waiting);
     assert(client);
-
-    if (engine_verbose(self)) {
-        zsys_debug("handling pipe message from perf 0x%lX", key);
-    }
 
     zmsg_t* request = zmsg_recv(pipe);
     char* command = zmsg_popstr(request);
@@ -319,7 +320,8 @@ s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
         char* ep = zmsg_popstr(request);
         int port_or_rc = pop_int(request);
         if (engine_verbose(self)) {
-            zsys_debug("%s %s %d", command, ep, port_or_rc);
+            zsys_debug ("zperf-server:      %s %s %d",
+                        command, ep, port_or_rc);
         }
 
         if (port_or_rc < 0) {
@@ -367,10 +369,10 @@ s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
 static void
 borc_return (client_t *self)
 {
-    if (engine_verbose(self->server)) {
-        zsys_debug("borc");
-        zperf_msg_print(self->message);
-    }
+    // if (engine_verbose(self->server)) {
+    //     zsys_debug("borc");
+    //     zperf_msg_print(self->message);
+    // }
 }
 
 //  ---------------------------------------------------------------------------
@@ -424,9 +426,9 @@ zperf_server_test (bool verbose)
     rc = zperf_msg_recv(request, client);
     assert(rc == 0);
     assert(zperf_msg_id(request) == ZPERF_MSG_PERF_OK);
-    assert(zperf_msg_ident(request) > 0);
+    assert(zperf_msg_ident(request));
     if (verbose) {
-        zsys_debug("got ident: 0x%lX", zperf_msg_ident(request));
+        zsys_debug("got ident: %s", zperf_msg_ident(request));
     }
     // note: just leave ident untouched for subsequent send/recv
 
@@ -445,7 +447,7 @@ zperf_server_test (bool verbose)
     }
     assert(rc == 0);
     assert(zperf_msg_id(request) == ZPERF_MSG_SOCKET_OK);
-    assert(zperf_msg_ident(request) > 0);
+    assert(zperf_msg_ident(request));
     const char* endpoint = zperf_msg_endpoint(request);
     assert(endpoint);
     if (verbose) {

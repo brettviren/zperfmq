@@ -64,9 +64,9 @@ int
     zperf_client_say_hello (zperf_client_t *self, const char *nickname, const char *endpoint);
 
 //  Request a perf to be created with a given socket type. This is a synchronous
-//  call as the client will wait for confirmation. If successful,
-//  zperf_client_ident() can be used to retrieve the perf ident. This ident is
-//  required for subsequent calls.
+//  call as the client will wait for confirmation. No return is sent through the
+//  command pipe. If successful, zperf_client_ident() can be used to retrieve the
+//  perf ident. This ident is required for subsequent calls.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
     zperf_client_create_perf (zperf_client_t *self, uint32_t stype);
@@ -74,21 +74,25 @@ int
 //  Request that a measurement socket be attached to an endpoint. The attachment is
 //  either "bind" or "connect" (borc). The ident comes from a create_perf() call. A
 //  "connect" may be repeated on the same endpoint and a "bind" may have a wild card
-//  for the port. This is a synchronous call. The endpoint is available after a
-//  successful completion.
+//  for the port. This is a synchronous call. No return is sent through the command
+//  pipe. The endpoint is available after a successful completion.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_request_borc (zperf_client_t *self, uint64_t ident, const char *borc, const char *endpoint);
+    zperf_client_request_borc (zperf_client_t *self, const char *ident, const char *borc, const char *endpoint);
 
 //  Request a perf measure. This is a synchronous call. The fields in RESULT will be
 //  available on success.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_request_measure (zperf_client_t *self, uint32_t ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
+    zperf_client_request_measure (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
 
 //  Return last received ident
-uint64_t
+const char *
     zperf_client_ident (zperf_client_t *self);
+
+//  Return last received ident and transfer ownership to caller
+const char *
+    zperf_client_get_ident (zperf_client_t *self);
 
 //  Return last received endpoint
 const char *

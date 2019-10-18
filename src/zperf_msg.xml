@@ -34,41 +34,41 @@
   </message>
 
   <message name = "LOOKUP">
-    <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
+    <field name = "ident"    type = "string">ID for the perf instance</field>
   </message>
 
   <message name = "PERF OK">
-    <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
+    <field name = "ident"    type = "string">ID for the perf instance</field>
   </message>
 
   <message name = "INFO">
-    <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
+    <field name = "ident"    type = "string">ID for the perf instance</field>
     <field name = "stype"    type = "number" size = "4">Socket type</field>
     <field name = "endpoints" type= "hash">Hash of address to bind or connect</field>
   </message>
 
   <message name = "INFO OK">
-    <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
+    <field name = "ident"    type = "string">ID for the perf instance</field>
     <field name = "perfinfo" type = "string">Info about the perf instance</field>
   </message>
 
   <message name = "SOCKET">
     Bind or connect the measurement socket to the address.
-    <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
-    <field name = "borc"   type = "string">Bind or Connect</field>
+    <field name = "ident"    type = "string">ID for the perf instance</field>
+    <field name = "borc"     type = "string">Bind or Connect</field>
     <field name = "endpoint" type = "string">Address</field>
   </message>
 
   <message name = "SOCKET OK">
     Bind or connect the measurement socket to the address.
-    <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
-    <field name = "borc"   type = "string">Bind or Connect</field>
+    <field name = "ident"    type = "string">ID for the perf instance</field>
+    <field name = "borc"     type = "string">Bind or Connect</field>
     <field name = "endpoint" type = "string">Address</field>
   </message>
 
   <message name = "MEASURE">
     Initiate a measurement.
-    <field name = "ident"   type = "number" size = "8">ID for the perf instance</field>
+    <field name = "ident"   type = "string">ID for the perf instance</field>
     <field name = "measure" type = "string">Measurement type</field>
     <field name = "nmsgs"   type = "number" size = "4">Number of messages</field>
     <field name = "msgsize" type = "number" size = "8">Message size in bytes</field>
@@ -77,7 +77,7 @@
 
   <message name = "RESULT">
     The results of a measurement.
-    <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
+    <field name = "ident"    type = "string">ID for the perf instance</field>
     <field name = "measure"  type = "string">Measurement type</field>
     <field name = "nmsgs"    type = "number" size = "4">Number of messages</field>
     <field name = "msgsize"  type = "number" size = "8">Message size in bytes</field>

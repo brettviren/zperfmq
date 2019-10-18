@@ -38,7 +38,7 @@ struct _zperf_msg_t {
     byte *ceiling;                      //  Valid upper limit for read pointer
     char nickname [256];                //  Client nickname
     uint32_t stype;                     //  Socket type
-    uint64_t ident;                     //  ID for the perf instance
+    char ident [256];                   //  ID for the perf instance
     zhash_t *endpoints;                 //  Hash of address to bind or connect
     size_t endpoints_bytes;             //  Size of hash content
     char perfinfo [256];                //  Info about the perf instance
@@ -438,20 +438,12 @@ zperf_msg_t *
                 return NULL;
             }
             {
-            char *es = NULL;
             char *s = zconfig_get (content, "ident", NULL);
             if (!s) {
-                zsys_error ("content/ident not found");
                 zperf_msg_destroy (&self);
                 return NULL;
             }
-            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
-            if (es != s+strlen (s)) {
-                zsys_error ("content/ident: %s is not a number", s);
-                zperf_msg_destroy (&self);
-                return NULL;
-            }
-            self->ident = uvalue;
+            strncpy (self->ident, s, 255);
             }
             break;
         case ZPERF_MSG_PERF_OK:
@@ -462,20 +454,12 @@ zperf_msg_t *
                 return NULL;
             }
             {
-            char *es = NULL;
             char *s = zconfig_get (content, "ident", NULL);
             if (!s) {
-                zsys_error ("content/ident not found");
                 zperf_msg_destroy (&self);
                 return NULL;
             }
-            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
-            if (es != s+strlen (s)) {
-                zsys_error ("content/ident: %s is not a number", s);
-                zperf_msg_destroy (&self);
-                return NULL;
-            }
-            self->ident = uvalue;
+            strncpy (self->ident, s, 255);
             }
             break;
         case ZPERF_MSG_INFO:
@@ -486,20 +470,12 @@ zperf_msg_t *
                 return NULL;
             }
             {
-            char *es = NULL;
             char *s = zconfig_get (content, "ident", NULL);
             if (!s) {
-                zsys_error ("content/ident not found");
                 zperf_msg_destroy (&self);
                 return NULL;
             }
-            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
-            if (es != s+strlen (s)) {
-                zsys_error ("content/ident: %s is not a number", s);
-                zperf_msg_destroy (&self);
-                return NULL;
-            }
-            self->ident = uvalue;
+            strncpy (self->ident, s, 255);
             }
             {
             char *es = NULL;
@@ -541,20 +517,12 @@ zperf_msg_t *
                 return NULL;
             }
             {
-            char *es = NULL;
             char *s = zconfig_get (content, "ident", NULL);
             if (!s) {
-                zsys_error ("content/ident not found");
                 zperf_msg_destroy (&self);
                 return NULL;
             }
-            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
-            if (es != s+strlen (s)) {
-                zsys_error ("content/ident: %s is not a number", s);
-                zperf_msg_destroy (&self);
-                return NULL;
-            }
-            self->ident = uvalue;
+            strncpy (self->ident, s, 255);
             }
             {
             char *s = zconfig_get (content, "perfinfo", NULL);
@@ -573,20 +541,12 @@ zperf_msg_t *
                 return NULL;
             }
             {
-            char *es = NULL;
             char *s = zconfig_get (content, "ident", NULL);
             if (!s) {
-                zsys_error ("content/ident not found");
                 zperf_msg_destroy (&self);
                 return NULL;
             }
-            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
-            if (es != s+strlen (s)) {
-                zsys_error ("content/ident: %s is not a number", s);
-                zperf_msg_destroy (&self);
-                return NULL;
-            }
-            self->ident = uvalue;
+            strncpy (self->ident, s, 255);
             }
             {
             char *s = zconfig_get (content, "borc", NULL);
@@ -613,20 +573,12 @@ zperf_msg_t *
                 return NULL;
             }
             {
-            char *es = NULL;
             char *s = zconfig_get (content, "ident", NULL);
             if (!s) {
-                zsys_error ("content/ident not found");
                 zperf_msg_destroy (&self);
                 return NULL;
             }
-            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
-            if (es != s+strlen (s)) {
-                zsys_error ("content/ident: %s is not a number", s);
-                zperf_msg_destroy (&self);
-                return NULL;
-            }
-            self->ident = uvalue;
+            strncpy (self->ident, s, 255);
             }
             {
             char *s = zconfig_get (content, "borc", NULL);
@@ -653,20 +605,12 @@ zperf_msg_t *
                 return NULL;
             }
             {
-            char *es = NULL;
             char *s = zconfig_get (content, "ident", NULL);
             if (!s) {
-                zsys_error ("content/ident not found");
                 zperf_msg_destroy (&self);
                 return NULL;
             }
-            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
-            if (es != s+strlen (s)) {
-                zsys_error ("content/ident: %s is not a number", s);
-                zperf_msg_destroy (&self);
-                return NULL;
-            }
-            self->ident = uvalue;
+            strncpy (self->ident, s, 255);
             }
             {
             char *s = zconfig_get (content, "measure", NULL);
@@ -733,20 +677,12 @@ zperf_msg_t *
                 return NULL;
             }
             {
-            char *es = NULL;
             char *s = zconfig_get (content, "ident", NULL);
             if (!s) {
-                zsys_error ("content/ident not found");
                 zperf_msg_destroy (&self);
                 return NULL;
             }
-            uint64_t uvalue = (uint64_t) strtoll (s, &es, 10);
-            if (es != s+strlen (s)) {
-                zsys_error ("content/ident: %s is not a number", s);
-                zperf_msg_destroy (&self);
-                return NULL;
-            }
-            self->ident = uvalue;
+            strncpy (self->ident, s, 255);
             }
             {
             char *s = zconfig_get (content, "measure", NULL);
@@ -1032,15 +968,15 @@ zperf_msg_recv (zperf_msg_t *self, zsock_t *input)
             break;
 
         case ZPERF_MSG_LOOKUP:
-            GET_NUMBER8 (self->ident);
+            GET_STRING (self->ident);
             break;
 
         case ZPERF_MSG_PERF_OK:
-            GET_NUMBER8 (self->ident);
+            GET_STRING (self->ident);
             break;
 
         case ZPERF_MSG_INFO:
-            GET_NUMBER8 (self->ident);
+            GET_STRING (self->ident);
             GET_NUMBER4 (self->stype);
             {
                 size_t hash_size;
@@ -1060,24 +996,24 @@ zperf_msg_recv (zperf_msg_t *self, zsock_t *input)
             break;
 
         case ZPERF_MSG_INFO_OK:
-            GET_NUMBER8 (self->ident);
+            GET_STRING (self->ident);
             GET_STRING (self->perfinfo);
             break;
 
         case ZPERF_MSG_SOCKET:
-            GET_NUMBER8 (self->ident);
+            GET_STRING (self->ident);
             GET_STRING (self->borc);
             GET_STRING (self->endpoint);
             break;
 
         case ZPERF_MSG_SOCKET_OK:
-            GET_NUMBER8 (self->ident);
+            GET_STRING (self->ident);
             GET_STRING (self->borc);
             GET_STRING (self->endpoint);
             break;
 
         case ZPERF_MSG_MEASURE:
-            GET_NUMBER8 (self->ident);
+            GET_STRING (self->ident);
             GET_STRING (self->measure);
             GET_NUMBER4 (self->nmsgs);
             GET_NUMBER8 (self->msgsize);
@@ -1085,7 +1021,7 @@ zperf_msg_recv (zperf_msg_t *self, zsock_t *input)
             break;
 
         case ZPERF_MSG_RESULT:
-            GET_NUMBER8 (self->ident);
+            GET_STRING (self->ident);
             GET_STRING (self->measure);
             GET_NUMBER4 (self->nmsgs);
             GET_NUMBER8 (self->msgsize);
@@ -1155,13 +1091,13 @@ zperf_msg_send (zperf_msg_t *self, zsock_t *output)
             frame_size += 4;            //  stype
             break;
         case ZPERF_MSG_LOOKUP:
-            frame_size += 8;            //  ident
+            frame_size += 1 + strlen (self->ident);
             break;
         case ZPERF_MSG_PERF_OK:
-            frame_size += 8;            //  ident
+            frame_size += 1 + strlen (self->ident);
             break;
         case ZPERF_MSG_INFO:
-            frame_size += 8;            //  ident
+            frame_size += 1 + strlen (self->ident);
             frame_size += 4;            //  stype
             frame_size += 4;            //  Size is 4 octets
             if (self->endpoints) {
@@ -1176,28 +1112,28 @@ zperf_msg_send (zperf_msg_t *self, zsock_t *output)
             frame_size += self->endpoints_bytes;
             break;
         case ZPERF_MSG_INFO_OK:
-            frame_size += 8;            //  ident
+            frame_size += 1 + strlen (self->ident);
             frame_size += 1 + strlen (self->perfinfo);
             break;
         case ZPERF_MSG_SOCKET:
-            frame_size += 8;            //  ident
+            frame_size += 1 + strlen (self->ident);
             frame_size += 1 + strlen (self->borc);
             frame_size += 1 + strlen (self->endpoint);
             break;
         case ZPERF_MSG_SOCKET_OK:
-            frame_size += 8;            //  ident
+            frame_size += 1 + strlen (self->ident);
             frame_size += 1 + strlen (self->borc);
             frame_size += 1 + strlen (self->endpoint);
             break;
         case ZPERF_MSG_MEASURE:
-            frame_size += 8;            //  ident
+            frame_size += 1 + strlen (self->ident);
             frame_size += 1 + strlen (self->measure);
             frame_size += 4;            //  nmsgs
             frame_size += 8;            //  msgsize
             frame_size += 4;            //  timeout
             break;
         case ZPERF_MSG_RESULT:
-            frame_size += 8;            //  ident
+            frame_size += 1 + strlen (self->ident);
             frame_size += 1 + strlen (self->measure);
             frame_size += 4;            //  nmsgs
             frame_size += 8;            //  msgsize
@@ -1234,15 +1170,15 @@ zperf_msg_send (zperf_msg_t *self, zsock_t *output)
             break;
 
         case ZPERF_MSG_LOOKUP:
-            PUT_NUMBER8 (self->ident);
+            PUT_STRING (self->ident);
             break;
 
         case ZPERF_MSG_PERF_OK:
-            PUT_NUMBER8 (self->ident);
+            PUT_STRING (self->ident);
             break;
 
         case ZPERF_MSG_INFO:
-            PUT_NUMBER8 (self->ident);
+            PUT_STRING (self->ident);
             PUT_NUMBER4 (self->stype);
             if (self->endpoints) {
                 PUT_NUMBER4 (zhash_size (self->endpoints));
@@ -1258,24 +1194,24 @@ zperf_msg_send (zperf_msg_t *self, zsock_t *output)
             break;
 
         case ZPERF_MSG_INFO_OK:
-            PUT_NUMBER8 (self->ident);
+            PUT_STRING (self->ident);
             PUT_STRING (self->perfinfo);
             break;
 
         case ZPERF_MSG_SOCKET:
-            PUT_NUMBER8 (self->ident);
+            PUT_STRING (self->ident);
             PUT_STRING (self->borc);
             PUT_STRING (self->endpoint);
             break;
 
         case ZPERF_MSG_SOCKET_OK:
-            PUT_NUMBER8 (self->ident);
+            PUT_STRING (self->ident);
             PUT_STRING (self->borc);
             PUT_STRING (self->endpoint);
             break;
 
         case ZPERF_MSG_MEASURE:
-            PUT_NUMBER8 (self->ident);
+            PUT_STRING (self->ident);
             PUT_STRING (self->measure);
             PUT_NUMBER4 (self->nmsgs);
             PUT_NUMBER8 (self->msgsize);
@@ -1283,7 +1219,7 @@ zperf_msg_send (zperf_msg_t *self, zsock_t *output)
             break;
 
         case ZPERF_MSG_RESULT:
-            PUT_NUMBER8 (self->ident);
+            PUT_STRING (self->ident);
             PUT_STRING (self->measure);
             PUT_NUMBER4 (self->nmsgs);
             PUT_NUMBER8 (self->msgsize);
@@ -1332,17 +1268,17 @@ zperf_msg_print (zperf_msg_t *self)
 
         case ZPERF_MSG_LOOKUP:
             zsys_debug ("ZPERF_MSG_LOOKUP:");
-            zsys_debug ("    ident=%ld", (long) self->ident);
+            zsys_debug ("    ident='%s'", self->ident);
             break;
 
         case ZPERF_MSG_PERF_OK:
             zsys_debug ("ZPERF_MSG_PERF_OK:");
-            zsys_debug ("    ident=%ld", (long) self->ident);
+            zsys_debug ("    ident='%s'", self->ident);
             break;
 
         case ZPERF_MSG_INFO:
             zsys_debug ("ZPERF_MSG_INFO:");
-            zsys_debug ("    ident=%ld", (long) self->ident);
+            zsys_debug ("    ident='%s'", self->ident);
             zsys_debug ("    stype=%ld", (long) self->stype);
             zsys_debug ("    endpoints=");
             if (self->endpoints) {
@@ -1358,27 +1294,27 @@ zperf_msg_print (zperf_msg_t *self)
 
         case ZPERF_MSG_INFO_OK:
             zsys_debug ("ZPERF_MSG_INFO_OK:");
-            zsys_debug ("    ident=%ld", (long) self->ident);
+            zsys_debug ("    ident='%s'", self->ident);
             zsys_debug ("    perfinfo='%s'", self->perfinfo);
             break;
 
         case ZPERF_MSG_SOCKET:
             zsys_debug ("ZPERF_MSG_SOCKET:");
-            zsys_debug ("    ident=%ld", (long) self->ident);
+            zsys_debug ("    ident='%s'", self->ident);
             zsys_debug ("    borc='%s'", self->borc);
             zsys_debug ("    endpoint='%s'", self->endpoint);
             break;
 
         case ZPERF_MSG_SOCKET_OK:
             zsys_debug ("ZPERF_MSG_SOCKET_OK:");
-            zsys_debug ("    ident=%ld", (long) self->ident);
+            zsys_debug ("    ident='%s'", self->ident);
             zsys_debug ("    borc='%s'", self->borc);
             zsys_debug ("    endpoint='%s'", self->endpoint);
             break;
 
         case ZPERF_MSG_MEASURE:
             zsys_debug ("ZPERF_MSG_MEASURE:");
-            zsys_debug ("    ident=%ld", (long) self->ident);
+            zsys_debug ("    ident='%s'", self->ident);
             zsys_debug ("    measure='%s'", self->measure);
             zsys_debug ("    nmsgs=%ld", (long) self->nmsgs);
             zsys_debug ("    msgsize=%ld", (long) self->msgsize);
@@ -1387,7 +1323,7 @@ zperf_msg_print (zperf_msg_t *self)
 
         case ZPERF_MSG_RESULT:
             zsys_debug ("ZPERF_MSG_RESULT:");
-            zsys_debug ("    ident=%ld", (long) self->ident);
+            zsys_debug ("    ident='%s'", self->ident);
             zsys_debug ("    measure='%s'", self->measure);
             zsys_debug ("    nmsgs=%ld", (long) self->nmsgs);
             zsys_debug ("    msgsize=%ld", (long) self->msgsize);
@@ -1495,7 +1431,7 @@ zperf_msg_zpl (zperf_msg_t *self, zconfig_t *parent)
 
 
             zconfig_t *config = zconfig_new ("content", root);
-            zconfig_putf (config, "ident", "%ld", (long) self->ident);
+            zconfig_putf (config, "ident", "%s", self->ident);
             break;
             }
         case ZPERF_MSG_PERF_OK:
@@ -1511,7 +1447,7 @@ zperf_msg_zpl (zperf_msg_t *self, zconfig_t *parent)
 
 
             zconfig_t *config = zconfig_new ("content", root);
-            zconfig_putf (config, "ident", "%ld", (long) self->ident);
+            zconfig_putf (config, "ident", "%s", self->ident);
             break;
             }
         case ZPERF_MSG_INFO:
@@ -1527,7 +1463,7 @@ zperf_msg_zpl (zperf_msg_t *self, zconfig_t *parent)
 
 
             zconfig_t *config = zconfig_new ("content", root);
-            zconfig_putf (config, "ident", "%ld", (long) self->ident);
+            zconfig_putf (config, "ident", "%s", self->ident);
             zconfig_putf (config, "stype", "%ld", (long) self->stype);
             if (self->endpoints) {
                 zconfig_t *hash = zconfig_new ("endpoints", config);
@@ -1552,7 +1488,7 @@ zperf_msg_zpl (zperf_msg_t *self, zconfig_t *parent)
 
 
             zconfig_t *config = zconfig_new ("content", root);
-            zconfig_putf (config, "ident", "%ld", (long) self->ident);
+            zconfig_putf (config, "ident", "%s", self->ident);
             zconfig_putf (config, "perfinfo", "%s", self->perfinfo);
             break;
             }
@@ -1569,7 +1505,7 @@ zperf_msg_zpl (zperf_msg_t *self, zconfig_t *parent)
 
 
             zconfig_t *config = zconfig_new ("content", root);
-            zconfig_putf (config, "ident", "%ld", (long) self->ident);
+            zconfig_putf (config, "ident", "%s", self->ident);
             zconfig_putf (config, "borc", "%s", self->borc);
             zconfig_putf (config, "endpoint", "%s", self->endpoint);
             break;
@@ -1587,7 +1523,7 @@ zperf_msg_zpl (zperf_msg_t *self, zconfig_t *parent)
 
 
             zconfig_t *config = zconfig_new ("content", root);
-            zconfig_putf (config, "ident", "%ld", (long) self->ident);
+            zconfig_putf (config, "ident", "%s", self->ident);
             zconfig_putf (config, "borc", "%s", self->borc);
             zconfig_putf (config, "endpoint", "%s", self->endpoint);
             break;
@@ -1605,7 +1541,7 @@ zperf_msg_zpl (zperf_msg_t *self, zconfig_t *parent)
 
 
             zconfig_t *config = zconfig_new ("content", root);
-            zconfig_putf (config, "ident", "%ld", (long) self->ident);
+            zconfig_putf (config, "ident", "%s", self->ident);
             zconfig_putf (config, "measure", "%s", self->measure);
             zconfig_putf (config, "nmsgs", "%ld", (long) self->nmsgs);
             zconfig_putf (config, "msgsize", "%ld", (long) self->msgsize);
@@ -1625,7 +1561,7 @@ zperf_msg_zpl (zperf_msg_t *self, zconfig_t *parent)
 
 
             zconfig_t *config = zconfig_new ("content", root);
-            zconfig_putf (config, "ident", "%ld", (long) self->ident);
+            zconfig_putf (config, "ident", "%s", self->ident);
             zconfig_putf (config, "measure", "%s", self->measure);
             zconfig_putf (config, "nmsgs", "%ld", (long) self->nmsgs);
             zconfig_putf (config, "msgsize", "%ld", (long) self->msgsize);
@@ -1852,7 +1788,7 @@ zperf_msg_set_stype (zperf_msg_t *self, uint32_t stype)
 //  --------------------------------------------------------------------------
 //  Get/set the ident field
 
-uint64_t
+const char *
 zperf_msg_ident (zperf_msg_t *self)
 {
     assert (self);
@@ -1860,10 +1796,14 @@ zperf_msg_ident (zperf_msg_t *self)
 }
 
 void
-zperf_msg_set_ident (zperf_msg_t *self, uint64_t ident)
+zperf_msg_set_ident (zperf_msg_t *self, const char *value)
 {
     assert (self);
-    self->ident = ident;
+    assert (value);
+    if (value == self->ident)
+        return;
+    strncpy (self->ident, value, 255);
+    self->ident [255] = 0;
 }
 
 
@@ -2270,7 +2210,7 @@ zperf_msg_test (bool verbose)
         }
     }
     zperf_msg_set_id (self, ZPERF_MSG_LOOKUP);
-    zperf_msg_set_ident (self, 123);
+    zperf_msg_set_ident (self, "Life is short but Now lasts for ever");
     // convert to zpl
     config = zperf_msg_zpl (self, NULL);
     if (verbose)
@@ -2290,14 +2230,14 @@ zperf_msg_test (bool verbose)
         }
         if (instance < 2)
             assert (zperf_msg_routing_id (self));
-        assert (zperf_msg_ident (self) == 123);
+        assert (streq (zperf_msg_ident (self), "Life is short but Now lasts for ever"));
         if (instance == 2) {
             zperf_msg_destroy (&self);
             self = self_temp;
         }
     }
     zperf_msg_set_id (self, ZPERF_MSG_PERF_OK);
-    zperf_msg_set_ident (self, 123);
+    zperf_msg_set_ident (self, "Life is short but Now lasts for ever");
     // convert to zpl
     config = zperf_msg_zpl (self, NULL);
     if (verbose)
@@ -2317,14 +2257,14 @@ zperf_msg_test (bool verbose)
         }
         if (instance < 2)
             assert (zperf_msg_routing_id (self));
-        assert (zperf_msg_ident (self) == 123);
+        assert (streq (zperf_msg_ident (self), "Life is short but Now lasts for ever"));
         if (instance == 2) {
             zperf_msg_destroy (&self);
             self = self_temp;
         }
     }
     zperf_msg_set_id (self, ZPERF_MSG_INFO);
-    zperf_msg_set_ident (self, 123);
+    zperf_msg_set_ident (self, "Life is short but Now lasts for ever");
     zperf_msg_set_stype (self, 123);
     zhash_t *info_endpoints = zhash_new ();
     zhash_insert (info_endpoints, "Name", (void*)"Brutus");
@@ -2348,7 +2288,7 @@ zperf_msg_test (bool verbose)
         }
         if (instance < 2)
             assert (zperf_msg_routing_id (self));
-        assert (zperf_msg_ident (self) == 123);
+        assert (streq (zperf_msg_ident (self), "Life is short but Now lasts for ever"));
         assert (zperf_msg_stype (self) == 123);
         zhash_t *endpoints = zperf_msg_get_endpoints (self);
         // Order of values is not guaranted
@@ -2364,7 +2304,7 @@ zperf_msg_test (bool verbose)
         }
     }
     zperf_msg_set_id (self, ZPERF_MSG_INFO_OK);
-    zperf_msg_set_ident (self, 123);
+    zperf_msg_set_ident (self, "Life is short but Now lasts for ever");
     zperf_msg_set_perfinfo (self, "Life is short but Now lasts for ever");
     // convert to zpl
     config = zperf_msg_zpl (self, NULL);
@@ -2385,7 +2325,7 @@ zperf_msg_test (bool verbose)
         }
         if (instance < 2)
             assert (zperf_msg_routing_id (self));
-        assert (zperf_msg_ident (self) == 123);
+        assert (streq (zperf_msg_ident (self), "Life is short but Now lasts for ever"));
         assert (streq (zperf_msg_perfinfo (self), "Life is short but Now lasts for ever"));
         if (instance == 2) {
             zperf_msg_destroy (&self);
@@ -2393,7 +2333,7 @@ zperf_msg_test (bool verbose)
         }
     }
     zperf_msg_set_id (self, ZPERF_MSG_SOCKET);
-    zperf_msg_set_ident (self, 123);
+    zperf_msg_set_ident (self, "Life is short but Now lasts for ever");
     zperf_msg_set_borc (self, "Life is short but Now lasts for ever");
     zperf_msg_set_endpoint (self, "Life is short but Now lasts for ever");
     // convert to zpl
@@ -2415,7 +2355,7 @@ zperf_msg_test (bool verbose)
         }
         if (instance < 2)
             assert (zperf_msg_routing_id (self));
-        assert (zperf_msg_ident (self) == 123);
+        assert (streq (zperf_msg_ident (self), "Life is short but Now lasts for ever"));
         assert (streq (zperf_msg_borc (self), "Life is short but Now lasts for ever"));
         assert (streq (zperf_msg_endpoint (self), "Life is short but Now lasts for ever"));
         if (instance == 2) {
@@ -2424,7 +2364,7 @@ zperf_msg_test (bool verbose)
         }
     }
     zperf_msg_set_id (self, ZPERF_MSG_SOCKET_OK);
-    zperf_msg_set_ident (self, 123);
+    zperf_msg_set_ident (self, "Life is short but Now lasts for ever");
     zperf_msg_set_borc (self, "Life is short but Now lasts for ever");
     zperf_msg_set_endpoint (self, "Life is short but Now lasts for ever");
     // convert to zpl
@@ -2446,7 +2386,7 @@ zperf_msg_test (bool verbose)
         }
         if (instance < 2)
             assert (zperf_msg_routing_id (self));
-        assert (zperf_msg_ident (self) == 123);
+        assert (streq (zperf_msg_ident (self), "Life is short but Now lasts for ever"));
         assert (streq (zperf_msg_borc (self), "Life is short but Now lasts for ever"));
         assert (streq (zperf_msg_endpoint (self), "Life is short but Now lasts for ever"));
         if (instance == 2) {
@@ -2455,7 +2395,7 @@ zperf_msg_test (bool verbose)
         }
     }
     zperf_msg_set_id (self, ZPERF_MSG_MEASURE);
-    zperf_msg_set_ident (self, 123);
+    zperf_msg_set_ident (self, "Life is short but Now lasts for ever");
     zperf_msg_set_measure (self, "Life is short but Now lasts for ever");
     zperf_msg_set_nmsgs (self, 123);
     zperf_msg_set_msgsize (self, 123);
@@ -2479,7 +2419,7 @@ zperf_msg_test (bool verbose)
         }
         if (instance < 2)
             assert (zperf_msg_routing_id (self));
-        assert (zperf_msg_ident (self) == 123);
+        assert (streq (zperf_msg_ident (self), "Life is short but Now lasts for ever"));
         assert (streq (zperf_msg_measure (self), "Life is short but Now lasts for ever"));
         assert (zperf_msg_nmsgs (self) == 123);
         assert (zperf_msg_msgsize (self) == 123);
@@ -2490,7 +2430,7 @@ zperf_msg_test (bool verbose)
         }
     }
     zperf_msg_set_id (self, ZPERF_MSG_RESULT);
-    zperf_msg_set_ident (self, 123);
+    zperf_msg_set_ident (self, "Life is short but Now lasts for ever");
     zperf_msg_set_measure (self, "Life is short but Now lasts for ever");
     zperf_msg_set_nmsgs (self, 123);
     zperf_msg_set_msgsize (self, 123);
@@ -2518,7 +2458,7 @@ zperf_msg_test (bool verbose)
         }
         if (instance < 2)
             assert (zperf_msg_routing_id (self));
-        assert (zperf_msg_ident (self) == 123);
+        assert (streq (zperf_msg_ident (self), "Life is short but Now lasts for ever"));
         assert (streq (zperf_msg_measure (self), "Life is short but Now lasts for ever"));
         assert (zperf_msg_nmsgs (self) == 123);
         assert (zperf_msg_msgsize (self) == 123);

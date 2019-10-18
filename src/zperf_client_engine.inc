@@ -93,7 +93,7 @@ struct _client_args_t {
     char *nickname;
     char *endpoint;
     uint32_t stype;
-    uint64_t ident;
+    char *ident;
     char *borc;
     uint32_t nmsgs;
     uint64_t msgsize;
@@ -164,7 +164,9 @@ static void
 static void
     remember_info (client_t *self);
 static void
-    signal_got_info (client_t *self);
+    msg_info_to_caller (client_t *self);
+static void
+    set_ident (client_t *self);
 static void
     set_socket_request (client_t *self);
 static void
@@ -174,7 +176,7 @@ static void
 static void
     set_results (client_t *self);
 static void
-    signal_results (client_t *self);
+    msg_results_to_caller (client_t *self);
 static void
     signal_success (client_t *self);
 static void
@@ -230,6 +232,7 @@ s_client_destroy (s_client_t **self_p)
         s_client_t *self = *self_p;
         zstr_free (&self->args.nickname);
         zstr_free (&self->args.endpoint);
+        zstr_free (&self->args.ident);
         zstr_free (&self->args.borc);
         client_terminate (&self->client);
         zperf_msg_destroy (&self->message);
@@ -676,10 +679,10 @@ s_client_execute (s_client_t *self, event_t event)
                         remember_info (&self->client);
                     }
                     if (!self->exception) {
-                        //  signal got info
+                        //  msg info to caller
                         if (self->verbose)
-                            zsys_debug ("%s:         $ signal got info", self->log_prefix);
-                        signal_got_info (&self->client);
+                            zsys_debug ("%s:         $ msg info to caller", self->log_prefix);
+                        msg_info_to_caller (&self->client);
                     }
                 }
                 else
@@ -772,6 +775,12 @@ s_client_execute (s_client_t *self, event_t event)
             case have_perf_state:
                 if (self->event == request_borc_event) {
                     if (!self->exception) {
+                        //  set ident
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ set ident", self->log_prefix);
+                        set_ident (&self->client);
+                    }
+                    if (!self->exception) {
                         //  set socket request
                         if (self->verbose)
                             zsys_debug ("%s:         $ set socket request", self->log_prefix);
@@ -789,12 +798,6 @@ s_client_execute (s_client_t *self, event_t event)
                 else
                 if (self->event == socket_ok_event) {
                     if (!self->exception) {
-                        //  set socket request
-                        if (self->verbose)
-                            zsys_debug ("%s:         $ set socket request", self->log_prefix);
-                        set_socket_request (&self->client);
-                    }
-                    if (!self->exception) {
                         //  signal socket request
                         if (self->verbose)
                             zsys_debug ("%s:         $ signal socket request", self->log_prefix);
@@ -803,6 +806,12 @@ s_client_execute (s_client_t *self, event_t event)
                 }
                 else
                 if (self->event == request_measure_event) {
+                    if (!self->exception) {
+                        //  set ident
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ set ident", self->log_prefix);
+                        set_ident (&self->client);
+                    }
                     if (!self->exception) {
                         //  set measurement request
                         if (self->verbose)
@@ -827,10 +836,10 @@ s_client_execute (s_client_t *self, event_t event)
                         set_results (&self->client);
                     }
                     if (!self->exception) {
-                        //  signal results
+                        //  msg results to caller
                         if (self->verbose)
-                            zsys_debug ("%s:         $ signal results", self->log_prefix);
-                        signal_results (&self->client);
+                            zsys_debug ("%s:         $ msg results to caller", self->log_prefix);
+                        msg_results_to_caller (&self->client);
                     }
                 }
                 else
@@ -910,10 +919,10 @@ s_client_execute (s_client_t *self, event_t event)
                         remember_info (&self->client);
                     }
                     if (!self->exception) {
-                        //  signal got info
+                        //  msg info to caller
                         if (self->verbose)
-                            zsys_debug ("%s:         $ signal got info", self->log_prefix);
-                        signal_got_info (&self->client);
+                            zsys_debug ("%s:         $ msg info to caller", self->log_prefix);
+                        msg_info_to_caller (&self->client);
                     }
                 }
                 else
@@ -1165,14 +1174,16 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
     }
     else
     if (streq (method, "REQUEST BORC")) {
+        zstr_free (&self->args.ident);
         zstr_free (&self->args.borc);
         zstr_free (&self->args.endpoint);
-        zsock_recv (self->cmdpipe, "8ss", &self->args.ident, &self->args.borc, &self->args.endpoint);
+        zsock_recv (self->cmdpipe, "sss", &self->args.ident, &self->args.borc, &self->args.endpoint);
         s_client_execute (self, request_borc_event);
     }
     else
     if (streq (method, "REQUEST MEASURE")) {
-        zsock_recv (self->cmdpipe, "4484", &self->args.ident, &self->args.nmsgs, &self->args.msgsize, &self->args.timeout);
+        zstr_free (&self->args.ident);
+        zsock_recv (self->cmdpipe, "s484", &self->args.ident, &self->args.nmsgs, &self->args.msgsize, &self->args.timeout);
         s_client_execute (self, request_measure_event);
     }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
@@ -1288,7 +1299,7 @@ struct _zperf_client_t {
     zactor_t *actor;            //  Client actor
     zsock_t *msgpipe;           //  Pipe for async message flow
     bool connected;             //  Client currently connected or not
-    uint64_t ident;             //  Returned by actor reply
+    char *ident;                //  Returned by actor reply
     char *endpoint;             //  Returned by actor reply
     uint32_t nmsgs;             //  Returned by actor reply
     uint64_t msgsize;           //  Returned by actor reply
@@ -1340,6 +1351,7 @@ zperf_client_destroy (zperf_client_t **self_p)
         }
         zactor_destroy (&self->actor);
         zsock_destroy (&self->msgpipe);
+        zstr_free (&self->ident);
         zstr_free (&self->endpoint);
         zstr_free (&self->reason);
         free (self);
@@ -1412,7 +1424,8 @@ s_accept_reply (zperf_client_t *self, ...)
         while (filter) {
             if (streq (reply, filter)) {
                 if (streq (reply, "PERF IDENT")) {
-                    zsock_recv (self->actor, "8", &self->ident);
+                    zstr_free (&self->ident);
+                    zsock_recv (self->actor, "s", &self->ident);
                 }
                 else
                 if (streq (reply, "PERF ENDPOINT")) {
@@ -1421,7 +1434,8 @@ s_accept_reply (zperf_client_t *self, ...)
                 }
                 else
                 if (streq (reply, "RESULT")) {
-                    zsock_recv (self->actor, "44848848", &self->ident, &self->nmsgs, &self->msgsize, &self->timeout, &self->time_us, &self->cpu_us, &self->noos, &self->nbytes);
+                    zstr_free (&self->ident);
+                    zsock_recv (self->actor, "s4848848", &self->ident, &self->nmsgs, &self->msgsize, &self->timeout, &self->time_us, &self->cpu_us, &self->noos, &self->nbytes);
                 }
                 else
                 if (streq (reply, "SUCCESS")) {
@@ -1466,9 +1480,9 @@ zperf_client_say_hello (zperf_client_t *self, const char *nickname, const char *
 
 //  ---------------------------------------------------------------------------
 //  Request a perf to be created with a given socket type. This is a synchronous
-//  call as the client will wait for confirmation. If successful,
-//  zperf_client_ident() can be used to retrieve the perf ident. This ident is
-//  required for subsequent calls.
+//  call as the client will wait for confirmation. No return is sent through the
+//  command pipe. If successful, zperf_client_ident() can be used to retrieve the
+//  perf ident. This ident is required for subsequent calls.
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
@@ -1487,16 +1501,16 @@ zperf_client_create_perf (zperf_client_t *self, uint32_t stype)
 //  Request that a measurement socket be attached to an endpoint. The attachment is
 //  either "bind" or "connect" (borc). The ident comes from a create_perf() call. A
 //  "connect" may be repeated on the same endpoint and a "bind" may have a wild card
-//  for the port. This is a synchronous call. The endpoint is available after a
-//  successful completion.
+//  for the port. This is a synchronous call. No return is sent through the command
+//  pipe. The endpoint is available after a successful completion.
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_request_borc (zperf_client_t *self, uint64_t ident, const char *borc, const char *endpoint)
+zperf_client_request_borc (zperf_client_t *self, const char *ident, const char *borc, const char *endpoint)
 {
     assert (self);
 
-    zsock_send (self->actor, "s8ss", "REQUEST BORC", ident, borc, endpoint);
+    zsock_send (self->actor, "ssss", "REQUEST BORC", ident, borc, endpoint);
     if (s_accept_reply (self, "PERF ENDPOINT", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -1509,11 +1523,11 @@ zperf_client_request_borc (zperf_client_t *self, uint64_t ident, const char *bor
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_request_measure (zperf_client_t *self, uint32_t ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
+zperf_client_request_measure (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
 {
     assert (self);
 
-    zsock_send (self->actor, "s4484", "REQUEST MEASURE", ident, nmsgs, msgsize, timeout);
+    zsock_send (self->actor, "ss484", "REQUEST MEASURE", ident, nmsgs, msgsize, timeout);
     if (s_accept_reply (self, "RESULT", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
@@ -1523,11 +1537,24 @@ zperf_client_request_measure (zperf_client_t *self, uint32_t ident, uint32_t nms
 //  ---------------------------------------------------------------------------
 //  Return last received ident
 
-uint64_t
+const char *
 zperf_client_ident (zperf_client_t *self)
 {
     assert (self);
     return self->ident;
+}
+
+
+//  ---------------------------------------------------------------------------
+//  Return last received ident and transfer ownership to caller
+
+const char *
+zperf_client_get_ident (zperf_client_t *self)
+{
+    assert (self);
+    char * ident = self->ident;
+    self->ident = NULL;
+    return ident;
 }
 
 

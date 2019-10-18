@@ -31,39 +31,39 @@
         stype               number 4    Socket type
 
     LOOKUP -
-        ident               number 8    ID for the perf instance
+        ident               string      ID for the perf instance
 
     PERF_OK -
-        ident               number 8    ID for the perf instance
+        ident               string      ID for the perf instance
 
     INFO -
-        ident               number 8    ID for the perf instance
+        ident               string      ID for the perf instance
         stype               number 4    Socket type
         endpoints           hash        Hash of address to bind or connect
 
     INFO_OK -
-        ident               number 8    ID for the perf instance
+        ident               string      ID for the perf instance
         perfinfo            string      Info about the perf instance
 
     SOCKET - Bind or connect the measurement socket to the address.
-        ident               number 8    ID for the perf instance
+        ident               string      ID for the perf instance
         borc                string      Bind or Connect
         endpoint            string      Address
 
     SOCKET_OK - Bind or connect the measurement socket to the address.
-        ident               number 8    ID for the perf instance
+        ident               string      ID for the perf instance
         borc                string      Bind or Connect
         endpoint            string      Address
 
     MEASURE - Initiate a measurement.
-        ident               number 8    ID for the perf instance
+        ident               string      ID for the perf instance
         measure             string      Measurement type
         nmsgs               number 4    Number of messages
         msgsize             number 8    Message size in bytes
         timeout             number 4    Timeout in msec
 
     RESULT - The results of a measurement.
-        ident               number 8    ID for the perf instance
+        ident               string      ID for the perf instance
         measure             string      Measurement type
         nmsgs               number 4    Number of messages
         msgsize             number 8    Message size in bytes
@@ -195,10 +195,10 @@ void
     zperf_msg_set_stype (zperf_msg_t *self, uint32_t stype);
 
 //  Get/set the ident field
-uint64_t
+const char *
     zperf_msg_ident (zperf_msg_t *self);
 void
-    zperf_msg_set_ident (zperf_msg_t *self, uint64_t ident);
+    zperf_msg_set_ident (zperf_msg_t *self, const char *value);
 
 //  Get a copy of the endpoints field
 zhash_t *

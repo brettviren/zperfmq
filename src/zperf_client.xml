@@ -55,7 +55,7 @@
     </event>
     <event name = "INFO OK">
       <action name = "remember info" />
-      <action name = "signal got info" />
+      <action name = "msg info to caller" />
     </event>
 
   </state>
@@ -64,21 +64,22 @@
   <state name = "have perf" inherit = "connected">
 
     <event name = "request borc">
+      <action name = "set ident" />
       <action name = "set socket request" />
       <action name = "send" message = "SOCKET" />
     </event>
     <event name = "SOCKET OK">
-      <action name = "set socket request" />
       <action name = "signal socket request" />
     </event>
 
     <event name = "request measure">
+      <action name = "set ident" />
       <action name = "set measurement request" />
       <action name = "send" message = "MEASURE" />
     </event>
     <event name = "RESULT">
       <action name = "set results" />
-      <action name = "signal results" />
+      <action name = "msg results to caller" />
     </event>
 
   </state>
@@ -127,7 +128,7 @@
     Request a perf to be created with a given socket type.
 
     This is a synchronous call as the client will wait for
-    confirmation.
+    confirmation.  No return is sent through the command pipe.
 
     If successful, zperf_client_ident() can be used to retrieve the
     perf ident.  This ident is required for subsequent calls.
@@ -139,7 +140,7 @@
   </method>
 
   <reply name = "PERF IDENT">
-    <field name = "ident" type = "number" size = "8" />
+    <field name = "ident" type = "string" />
   </reply>
 
   <method name = "request borc" return = "status">
@@ -149,11 +150,12 @@
     comes from a create_perf() call.  A "connect" may be repeated on
     the same endpoint and a "bind" may have a wild card for the port.
 
-    This is a synchronous call.
+    This is a synchronous call.  No return is sent through the command
+    pipe.
 
     The endpoint is available after a successful completion.
 
-    <field name = "ident"    type = "number" size = "8">ID for the perf instance</field>
+    <field name = "ident"    type = "string">ID for the perf instance</field>
     <field name = "borc"     type = "string" >The socket attachment type ("bind" or "connect")</field>
     <field name = "endpoint" type = "string" >The endpoint address in ZeroMQ format</field>
 
@@ -170,7 +172,7 @@
     This is a synchronous call.  The fields in RESULT will be
     available on success.
 
-    <field name = "ident"   type = "number" size = "4">ID for the perf instance</field>
+    <field name = "ident"   type = "string">ID for the perf instance</field>
     <field name = "nmsgs"   type = "number" size = "4" >Number of messages to process</field>
     <field name = "msgsize" type = "number" size = "8" >Size of messages to process</field>
     <field name = "timeout" type = "number" size = "4" >Timeout in msec after no activity</field>
@@ -183,8 +185,8 @@
     Request a perf measure.
 
     This is an asynchronous call.  A message matching the fields in
-    RESULT will be provided by the msgpipe when a successful measure
-    is returned.
+    RESULT will be provided by the command pipe when a successful
+    measure is returned.
 
     <field name = "ident"    type = "string">ID for the perf instance</field>
     <field name = "nmsgs" type = "number" size = "4" >Number of messages to process</field>
@@ -196,7 +198,7 @@
   -->
 
   <reply name = "RESULT">
-    <field name = "ident"   type = "number" size = "4">ID for the perf instance</field>
+    <field name = "ident"   type = "string">ID for the perf instance</field>
     <field name = "nmsgs"   type = "number" size = "4">Number of messages</field>
     <field name = "msgsize" type = "number" size = "8">Message size in bytes</field>
     <field name = "timeout" type = "number" size = "4">Timeout in millisec</field>

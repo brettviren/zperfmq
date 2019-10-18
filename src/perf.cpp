@@ -139,6 +139,7 @@ perf_connect (perf_t *self, const char* endpoint)
 
     int rc = zsock_connect(self->sock, "%s", endpoint);
     // CONNECT <address> <rc>
+    zsys_debug("perf: CONNECT %s %d", endpoint, rc);
     zsock_send(self->pipe, "ssi", "CONNECT", endpoint, rc);
     return rc;
 }
