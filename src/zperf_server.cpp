@@ -349,6 +349,7 @@ s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
     else if(streq(command, "ECHO") || streq(command, "YODEL")
             || streq(command, "SEND") || streq(command, "RECV")) {
         zperf_msg_set_id(client->message, ZPERF_MSG_RESULT);
+        zperf_msg_set_measure(client->message, command);
         zperf_msg_set_nmsgs(client->message, pop_int(request));
         zperf_msg_set_nbytes(client->message, pop_long(request));
         zperf_msg_set_time_us(client->message, pop_long(request));

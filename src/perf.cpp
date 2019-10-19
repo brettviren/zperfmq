@@ -139,7 +139,9 @@ perf_connect (perf_t *self, const char* endpoint)
 
     int rc = zsock_connect(self->sock, "%s", endpoint);
     // CONNECT <address> <rc>
-    zsys_debug("perf: CONNECT %s %d", endpoint, rc);
+    if (self->verbose) {
+        zsys_debug("perf: CONNECT %s %d", endpoint, rc);
+    }
     zsock_send(self->pipe, "ssi", "CONNECT", endpoint, rc);
     return rc;
 }
@@ -157,7 +159,7 @@ static void
 s_reset(perf_t* self, const char* measure, int nmsgs, size_t msgsize)
 {
     if (self->verbose) {
-        zsys_debug("perf: %s %d %ld", measure, nmsgs, msgsize);
+        zsys_debug("perf: start: %s %d %ld", measure, nmsgs, msgsize);
     }
 
     assert (self);
@@ -205,11 +207,6 @@ void s_send(perf_t* self, int count, zframe_t* frame)
 
     zmsg_send(&msg, self->sock);
 
-    if (self->verbose) {
-        zsys_debug("perf: %s %d %ld %ld",
-                   self->measure, self->nmsgs, self->msgsize,
-                   self->totdata);
-    }
     // zsys_debug("send: %s count %d and frame of size %ld",
     //            self->measure, count, zframe_size(frame));
 }
@@ -269,6 +266,11 @@ int s_signal(perf_t* self)
     int rc = zsock_send(self->pipe, "si888i", self->measure,
                         self->nmsgs, self->totdata,
                         self->time_us, self->cpu_us, self->noos);
+    if (self->verbose) {
+        zsys_debug("perf: done: %s %d %ld %ld",
+                   self->measure, self->nmsgs, self->msgsize,
+                   self->totdata);
+    }
     return rc;
 }
 

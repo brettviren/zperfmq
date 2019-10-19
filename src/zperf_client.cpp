@@ -362,6 +362,8 @@ set_measurement_request (client_t *self)
 static void
 signal_result (client_t *self)
 {
+    zsys_debug("signal_result: %s",
+               zperf_msg_measure(self->message));
     zperf_msg_send(self->message, self->msgpipe);
 }
 
