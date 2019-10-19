@@ -112,17 +112,38 @@ zperf_client_test (bool verbose)
     int nmsgs = 1000, tout=0;
     size_t msgsize = 1024;
 
-    rc = zperf_client_request_measure(client, echo, "ECHO",
-                                      nmsgs, msgsize, tout);
+    rc = zperf_client_launch_measure(client, echo, "ECHO",
+                                     nmsgs, msgsize, tout);
+    assert(rc == 0);
+    rc = zperf_client_status(client);
     assert(rc == 0);
 
-    rc = zperf_client_request_measure(client, yodel, "YODEL",
-                                      nmsgs, msgsize, tout);
+    rc = zperf_client_launch_measure(client, yodel, "YODEL",
+                                     nmsgs, msgsize, tout);
+    assert(rc == 0);
+    rc = zperf_client_status(client);
     assert(rc == 0);
     
+    zperf_msg_t* zpm1 = zperf_msg_new();
+    zperf_msg_t* zpm2 = zperf_msg_new();
+
+    rc = zperf_msg_recv(zpm1, zperf_client_msgpipe(client));
+    assert(rc == 0);
+
+    rc = zperf_msg_recv(zpm2, zperf_client_msgpipe(client));
+    assert(rc == 0);
+
+    if (verbose) {
+        zperf_msg_print(zpm1);
+        zperf_msg_print(zpm2);
+    }
+
+    assert(!streq(zperf_msg_measure(zpm1), zperf_msg_measure(zpm2)));
+
+    zperf_msg_destroy(&zpm1);
+    zperf_msg_destroy(&zpm2);
+
     
-
-
     zperf_client_destroy (&client);
     zsys_debug("client destroyed");
     zactor_destroy (&server);
@@ -341,16 +362,7 @@ set_measurement_request (client_t *self)
 static void
 signal_result (client_t *self)
 {
-    zsock_send(self->cmdpipe, "ss4848848",
-               "RESULT",
-               zperf_msg_ident(self->message),
-               zperf_msg_nmsgs(self->message),
-               zperf_msg_msgsize(self->message),
-               zperf_msg_timeout(self->message),
-               zperf_msg_time_us(self->message),
-               zperf_msg_cpu_us(self->message),
-               zperf_msg_noos(self->message),
-               zperf_msg_nbytes(self->message));
+    zperf_msg_send(self->message, self->msgpipe);
 }
 
 

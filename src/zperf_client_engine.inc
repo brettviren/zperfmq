@@ -41,8 +41,8 @@ typedef enum {
     info_ok_event = 8,
     request_borc_event = 9,
     socket_ok_event = 10,
-    request_measure_event = 11,
-    result_event = 12,
+    result_event = 11,
+    launch_measure_event = 12,
     destructor_event = 13,
     goodbye_ok_event = 14,
     expired_event = 15,
@@ -80,8 +80,8 @@ s_event_name [] = {
     "INFO_OK",
     "request_borc",
     "SOCKET_OK",
-    "request_measure",
     "RESULT",
+    "launch_measure",
     "destructor",
     "GOODBYE_OK",
     "expired",
@@ -183,9 +183,9 @@ static void
 static void
     signal_socket_request (client_t *self);
 static void
-    set_measurement_request (client_t *self);
-static void
     signal_result (client_t *self);
+static void
+    set_measurement_request (client_t *self);
 static void
     signal_success (client_t *self);
 static void
@@ -809,7 +809,16 @@ s_client_execute (s_client_t *self, event_t event)
                     }
                 }
                 else
-                if (self->event == request_measure_event) {
+                if (self->event == result_event) {
+                    if (!self->exception) {
+                        //  signal result
+                        if (self->verbose)
+                            zsys_debug ("%s:         $ signal result", self->log_prefix);
+                        signal_result (&self->client);
+                    }
+                }
+                else
+                if (self->event == launch_measure_event) {
                     if (!self->exception) {
                         //  set ident
                         if (self->verbose)
@@ -830,14 +839,11 @@ s_client_execute (s_client_t *self, event_t event)
                         zperf_msg_set_id (self->message, ZPERF_MSG_MEASURE);
                         zperf_msg_send (self->message, self->dealer);
                     }
-                }
-                else
-                if (self->event == result_event) {
                     if (!self->exception) {
-                        //  signal result
+                        //  signal success
                         if (self->verbose)
-                            zsys_debug ("%s:         $ signal result", self->log_prefix);
-                        signal_result (&self->client);
+                            zsys_debug ("%s:         $ signal success", self->log_prefix);
+                        signal_success (&self->client);
                     }
                 }
                 else
@@ -1380,11 +1386,11 @@ s_client_handle_cmdpipe (zloop_t *loop, zsock_t *reader, void *argument)
         s_client_execute (self, request_borc_event);
     }
     else
-    if (streq (method, "REQUEST MEASURE")) {
+    if (streq (method, "LAUNCH MEASURE")) {
         zstr_free (&self->args.ident);
         zstr_free (&self->args.measure);
         zsock_recv (self->cmdpipe, "ss484", &self->args.ident, &self->args.measure, &self->args.nmsgs, &self->args.msgsize, &self->args.timeout);
-        s_client_execute (self, request_measure_event);
+        s_client_execute (self, launch_measure_event);
     }
     //  Cleanup pipe if any argument frames are still waiting to be eaten
     if (zsock_rcvmore (self->cmdpipe)) {
@@ -1718,17 +1724,18 @@ zperf_client_request_borc (zperf_client_t *self, const char *ident, const char *
 
 
 //  ---------------------------------------------------------------------------
-//  Request a perf measure. This is a synchronous call. The fields in RESULT will be
-//  available on success.
+//  Request a perf measure. This is an asynchronous call. A message matching the
+//  fields in RESULT will be provided by the command pipe when a successful measure
+//  is returned.
 //  Returns >= 0 if successful, -1 if interrupted.
 
 int
-zperf_client_request_measure (zperf_client_t *self, const char *ident, const char *measure, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
+zperf_client_launch_measure (zperf_client_t *self, const char *ident, const char *measure, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout)
 {
     assert (self);
 
-    zsock_send (self->actor, "sss484", "REQUEST MEASURE", ident, measure, nmsgs, msgsize, timeout);
-    if (s_accept_reply (self, "RESULT", "FAILURE", NULL))
+    zsock_send (self->actor, "sss484", "LAUNCH MEASURE", ident, measure, nmsgs, msgsize, timeout);
+    if (s_accept_reply (self, "SUCCESS", "FAILURE", NULL))
         return -1;              //  Interrupted or timed-out
     return self->status;
 }

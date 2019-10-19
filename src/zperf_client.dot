@@ -43,12 +43,12 @@ digraph "zperf_client" {
  "have perf socket ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">socket ok</font></td></tr><tr><td align="left" port="r3">signal socket request</td></tr></table>>];
  "have perf" -> "have perf socket ok";
  "have perf socket ok" -> "have perf";
- "have perf request measure" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">request measure</font></td></tr><tr><td align="left" port="r3">set ident</td></tr><tr><td align="left" port="r3">set measurement request</td></tr><tr><td align="left" port="r3">send (measure)</td></tr></table>>];
- "have perf" -> "have perf request measure";
- "have perf request measure" -> "have perf";
  "have perf result" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">result</font></td></tr><tr><td align="left" port="r3">signal result</td></tr></table>>];
  "have perf" -> "have perf result";
  "have perf result" -> "have perf";
+ "have perf launch measure" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">launch measure</font></td></tr><tr><td align="left" port="r3">set ident</td></tr><tr><td align="left" port="r3">set measurement request</td></tr><tr><td align="left" port="r3">send (measure)</td></tr><tr><td align="left" port="r3">signal success</td></tr></table>>];
+ "have perf" -> "have perf launch measure";
+ "have perf launch measure" -> "have perf";
 
  "defaults" [shape = "doublecircle"];
  "defaults destructor" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">destructor</font></td></tr><tr><td align="left" port="r3">send (goodbye)</td></tr></table>>];

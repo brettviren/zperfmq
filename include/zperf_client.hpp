@@ -80,11 +80,12 @@ int
 int
     zperf_client_request_borc (zperf_client_t *self, const char *ident, const char *borc, const char *endpoint);
 
-//  Request a perf measure. This is a synchronous call. The fields in RESULT will be
-//  available on success.
+//  Request a perf measure. This is an asynchronous call. A message matching the
+//  fields in RESULT will be provided by the command pipe when a successful measure
+//  is returned.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_request_measure (zperf_client_t *self, const char *ident, const char *measure, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
+    zperf_client_launch_measure (zperf_client_t *self, const char *ident, const char *measure, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
 
 //  Return last received ident
 const char *

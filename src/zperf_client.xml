@@ -72,15 +72,23 @@
       <action name = "signal socket request" />
     </event>
 
+    <!-- 
     <event name = "request measure">
       <action name = "set ident" />
       <action name = "set measurement request" />
       <action name = "send" message = "MEASURE" />
     </event>
+    -->
     <event name = "RESULT">
       <action name = "signal result" />
     </event>
 
+    <event name = "launch measure">
+      <action name = "set ident" />
+      <action name = "set measurement request" />
+      <action name = "send" message = "MEASURE" />
+      <action name = "signal success" />
+    </event>
   </state>
 
 
@@ -190,6 +198,7 @@
     <field name = "endpoint" type = "string" />
   </reply>
 
+  <!-- 
   <method name = "request measure" return = "status">
     Request a perf measure.
 
@@ -204,8 +213,8 @@
     <accept reply = "RESULT" />
     <accept reply = "FAILURE" />
   </method>
+  -->
 
-  <!-- coming real soon now
   <method name = "launch measure" return = "status">
     Request a perf measure.
 
@@ -214,13 +223,13 @@
     measure is returned.
 
     <field name = "ident"    type = "string">ID for the perf instance</field>
+    <field name = "measure" type = "string">Measure type (echo, yodel, send, recv)</field>
     <field name = "nmsgs" type = "number" size = "4" >Number of messages to process</field>
     <field name = "msgsize" type = "number" size = "8" >Size of messages to process</field>
     <field name = "timeout" type = "number" size = "4" >Timeout in msec after no activity</field>
-    <accept reply = "RESULT" />
+    <accept reply = "SUCCESS" />
     <accept reply = "FAILURE" />
   </method>
-  -->
 
   <reply name = "RESULT">
     <field name = "ident"   type = "string">ID for the perf instance</field>
