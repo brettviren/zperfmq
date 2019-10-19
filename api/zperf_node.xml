@@ -1,0 +1,44 @@
+<class name = "zperf_node">
+  API to a zperf agent which combines client, server and Zyre actor.
+
+  <constructor>
+    Create a zperf node.
+  </constructor>
+
+  <destructor />
+
+  <method name = "server">
+    Create a server, return status code.
+    <argument name = "server_name" type="string"/>
+    <return type = "number"/>
+  </method>
+  
+  <method name = "client">
+    Create a client, return status code.
+    <argument name = "client_name" type="string"/>
+    <return type = "number"/>
+  </method>
+
+  <method name = "publish">
+    Announce self to the zyre network.
+
+    Call this after all servers have been initialized.
+
+    Return our zyre peer id.
+    <argument name = "nickname" type = "string" />
+    <return type = "string"/>
+  </method>
+
+  <method name = "peers">
+    Return a hash of zyre peer IDs and nick names.
+
+    <return type = "zhash"/>
+  </method>
+
+  <method name = "peer_info">
+    Return information about a zyre peer.
+    <argument name = "peerid" type = "string" />
+    <return type = "zhash" />
+  </method>
+
+</class>

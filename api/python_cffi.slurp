@@ -9,6 +9,9 @@ zperfmq_cdefs = list ()
 
 zperfmq_cdefs.append ('''
 typedef struct _zperf_t zperf_t;
+typedef struct _zperfmq_t zperfmq_t;
+typedef struct _int_t int_t;
+typedef struct _zhash_t zhash_t;
 // CLASS: zperf
 // Create a new zperf using the given socket type.
 zperf_t *
@@ -77,5 +80,42 @@ uint64_t
 // Self test of this class.
 void
     zperf_test (bool verbose);
+
+// CLASS: zperfmq
+// Create a zperfmq.
+zperfmq_t *
+    zperfmq_new (void);
+
+// Destroy the zperfmq.
+void
+    zperfmq_destroy (zperfmq_t **self_p);
+
+// Create a server, return status code.
+int_t *
+    zperfmq_server (zperfmq_t *self, const char *server_name);
+
+// Create a client, return status code.
+int_t *
+    zperfmq_client (zperfmq_t *self, const char *client_name);
+
+// Announce self to the zyre network.
+//
+// Call this after all servers have been initialized.
+//
+// Return our zyre peer id.
+const char *
+    zperfmq_publish (zperfmq_t *self, const char *nickname);
+
+// Return a hash of zyre peer IDs and nick names.
+zhash_t *
+    zperfmq_peers (zperfmq_t *self);
+
+// Return information about a zyre peer.
+zhash_t *
+    zperfmq_peer_info (zperfmq_t *self, const char *peerid);
+
+// Self test of this class.
+void
+    zperfmq_test (bool verbose);
 
 ''')

@@ -13,6 +13,8 @@
 # Ignore the source doc texts generated from program sources
 zperf.txt
 zperf.doc
+zperf_node.txt
+zperf_node.doc
 zperf_msg.txt
 zperf_msg.doc
 zperf_server.txt

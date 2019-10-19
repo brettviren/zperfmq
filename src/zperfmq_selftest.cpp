@@ -28,6 +28,7 @@ all_tests [] = {
 #ifdef ZPERFMQ_BUILD_DRAFT_API
 // Tests for draft public classes:
     { "zperf", zperf_test, false, true, NULL },
+    { "zperf_node", zperf_node_test, false, true, NULL },
     { "zperf_msg", zperf_msg_test, false, true, NULL },
     { "zperf_server", zperf_server_test, false, true, NULL },
     { "zperf_client", zperf_client_test, false, true, NULL },

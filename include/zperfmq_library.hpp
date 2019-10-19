@@ -16,6 +16,7 @@
 //  Set up environment for the application
 
 //  External dependencies
+#include <zyre.h>
 #include <czmq.h>
 
 //  ZPERFMQ version macros for compile-time API detection
@@ -66,6 +67,8 @@
 #ifdef ZPERFMQ_BUILD_DRAFT_API
 typedef struct _zperf_t zperf_t;
 #define ZPERF_T_DEFINED
+typedef struct _zperf_node_t zperf_node_t;
+#define ZPERF_NODE_T_DEFINED
 typedef struct _zperf_msg_t zperf_msg_t;
 #define ZPERF_MSG_T_DEFINED
 typedef struct _zperf_server_t zperf_server_t;
@@ -80,6 +83,7 @@ typedef struct _perf_t perf_t;
 //  Public classes, each with its own header file
 #ifdef ZPERFMQ_BUILD_DRAFT_API
 #include "zperf.hpp"
+#include "zperf_node.hpp"
 #include "zperf_msg.hpp"
 #include "zperf_server.hpp"
 #include "zperf_client.hpp"

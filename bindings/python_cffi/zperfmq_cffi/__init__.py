@@ -4,3 +4,4 @@
 ################################################################################
 from . import utils
 from .Zperf import *
+from .Zperfmq import *

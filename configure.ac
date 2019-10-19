@@ -161,6 +161,90 @@ PREVIOUS_CFLAGS="${CFLAGS}"
 PREVIOUS_LIBS="${LIBS}"
 
 
+was_zyre_check_lib_detected=no
+
+search_libzyre="yes"
+
+AC_ARG_WITH([libzyre],
+    [
+        AS_HELP_STRING([--with-libzyre],
+        [yes or no. Optionally specify libzyre prefix (directory where its include/ and lib/ are located), but that is only used if pkgconfig metadata is not found first])
+    ],
+    [
+        search_libzyre="yes"
+    ],
+    [
+        search_libzyre="yes"
+    ])
+AS_CASE([x"${with_libzyre}"],
+    [xyes], [search_libzyre="yes"],
+    [xno],  [search_libzyre="no"])
+
+dnl We do not abort right now, because the maintainer/developer may have
+dnl something particular in mind, e.g. to build just parts of a project.
+AS_IF([test x"${search_libzyre}" = xno],
+    [AC_MSG_WARN([Required dependency on zyre was explicitly disabled during configuration by '--with-libzyre=no'; subsequent full build of zperfmq may fail])])
+
+AS_IF([test x"${search_libzyre}" = xyes], [
+    # Archive previously detected and supplied flags
+    PRE_SEARCH_CFLAGS="${CFLAGS}"
+    PRE_SEARCH_LIBS="${LIBS}"
+
+    found_pkgconfig=""
+    PKG_CHECK_MODULES([zyre], [libzyre >= 0.0.0],
+    [
+        was_zyre_check_lib_detected=pkgcfg
+        found_pkgconfig="libzyre"
+    ],
+    [
+        AC_MSG_NOTICE([Package libzyre not found; falling back to defined compilability tests])
+
+        zyre_synthetic_cflags=""
+        zyre_synthetic_libs="-lzyre"
+
+        if test -n "${with_libzyre}" && test x"${with_libzyre}" != xyes && test x"${with_libzyre}" != xno; then
+            if test -r "${with_libzyre}/include/zyre.h"; then
+                zyre_synthetic_cflags="-I${with_libzyre}/include"
+                zyre_synthetic_libs="-L${with_libzyre}/lib -lzyre"
+            else
+            AC_MSG_ERROR([Header file ${with_libzyre}/include/zyre.h was not found. Please check libzyre prefix])
+            fi
+        else
+            AC_CHECK_HEADER([zyre.h], [],
+            AC_MSG_ERROR([Header file zyre.h was not found in default search paths])
+                )
+        fi
+
+        AC_CHECK_LIB([zyre], [zyre_test],
+            [
+                was_zyre_check_lib_detected=yes
+                PKGCFG_LIBS_PRIVATE="$PKGCFG_LIBS_PRIVATE -lzyre"
+            ],
+            [AC_MSG_ERROR([cannot link with -lzyre, install libzyre])])
+    ])
+
+dnl END of PKG_CHECK_MODULES and/or direct tests for libzyre
+    AS_CASE(["x${was_zyre_check_lib_detected}"],
+        [xpkgcfg], [
+                PKGCFG_NAMES_PRIVATE="$PKGCFG_NAMES_PRIVATE ${found_pkgconfig}"
+                CFLAGS="${zyre_CFLAGS} ${CFLAGS}"
+                LIBS="${zyre_LIBS} ${LIBS}"
+            ],
+        [xyes], [
+                CFLAGS="${zyre_synthetic_cflags} ${CFLAGS}"
+                LDFLAGS="${zyre_synthetic_libs} ${LDFLAGS}"
+                LIBS="${zyre_synthetic_libs} ${LIBS}"
+
+                AC_SUBST([zyre_CFLAGS],[${zyre_synthetic_cflags}])
+                AC_SUBST([zyre_LIBS],[${zyre_synthetic_libs}])
+            ],
+        [xno], [
+            AC_MSG_ERROR([Cannot find pkg-config metadata for libzyre 0.0.0 or higher])
+    ])
+])
+dnl END of enabled attempts to search for libzyre
+
+
 was_libzmq_check_lib_detected=no
 
 search_libzmq="yes"

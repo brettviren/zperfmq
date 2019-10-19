@@ -9,7 +9,9 @@
     >
   <include filename = "license.xml" />
   <version major = "0" minor = "0" patch = "0" />
-  <use project = "czmq" language="C++" />
+
+  <use project = "zyre" />
+  <use project = "czmq" />
 
   <classfilename use-cxx = "true" use-cxx-gcc-4-9 = "true"
                  pkgincludedir = "false" keep-tree = "true" pretty-print = "no"
@@ -30,6 +32,10 @@
     Synchronous API to perf actor.
   </class>
 
+  <class name="zperf_node">
+    A zperf node which bundles clients, servers and Zyre.
+  </class>
+
   <class name = "zperf_msg" />
   <class name = "zperf_server" />
   <class name = "zperf_client" />
@@ -48,6 +54,7 @@
   </target>
 
   <target name = "cmake" />
+  <target name = "autotools" />
 
   <target name = "python" />
   <target name = "python_cffi" />
