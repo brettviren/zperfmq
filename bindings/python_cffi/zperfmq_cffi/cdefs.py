@@ -4761,7 +4761,25 @@ void
 zperfmq_cdefs.extend (czmq_cdefs)
 
 zperfmq_cdefs.append ('''
+typedef struct _zperf_node_t zperf_node_t;
 typedef struct _zperf_t zperf_t;
+// CLASS: zperf_node
+// Create a new zperf_node.
+zperf_node_t *
+    zperf_node_new (const char *nickname);
+
+// Destroy the zperf_node.
+void
+    zperf_node_destroy (zperf_node_t **self_p);
+
+// Create a server in the node.
+void
+    zperf_node_server (zperf_node_t *self, const char *nickname);
+
+// Self test of this class.
+void
+    zperf_node_test (bool verbose);
+
 // CLASS: zperf
 // Create a new zperf using the given socket type.
 zperf_t *

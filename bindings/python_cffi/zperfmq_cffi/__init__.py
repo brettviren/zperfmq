@@ -3,4 +3,5 @@
 #  Read the zproject/README.md for information about making permanent changes. #
 ################################################################################
 from . import utils
+from .ZperfNode import *
 from .Zperf import *

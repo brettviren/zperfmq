@@ -1,5 +1,5 @@
 /*  =========================================================================
-    zpnode - An actor managing a Zyre node and a bundle of zperf clients and servers.
+    zpnode - An actor managing a Zyre node a zperf client and/or server.
 
     LGPL 3.0
     =========================================================================
@@ -7,7 +7,7 @@
 
 /*
 @header
-    zpnode - An actor managing a Zyre node and a bundle of zperf clients and servers.
+    zpnode - An actor managing a Zyre node a zperf client and/or server.
 @discuss
 @end
 */
@@ -28,6 +28,8 @@ struct _zpnode_t {
     const char* name;
     zyre_t* zyre;
     bool started;
+    zactor_t* server;
+    zperf_client_t* client;
 };
 
 
@@ -47,6 +49,8 @@ zpnode_new (zsock_t *pipe, void *args)
     //  Initialize properties
     self->name = (const char*)args;
     self->zyre = zyre_new(self->name);
+    self->server = NULL;
+    self->client = NULL;
     
     return self;
 }
@@ -64,7 +68,12 @@ zpnode_destroy (zpnode_t **self_p)
 
         //  Free actor properties
         zyre_destroy(&self->zyre);
-
+        if (self->server) {
+            zactor_destroy(&self->server);
+        }
+        if (self->client) {
+            zperf_client_destroy(&self->client);
+        }
         //  Free object itself
         zpoller_destroy (&self->poller);
         free (self);
@@ -107,6 +116,48 @@ zpnode_stop (zpnode_t *self)
     return 0;
 }
 
+static int
+zpnode_server (zpnode_t *self, const char* nickname)
+{
+    assert (self);
+    if (self->server) {
+        zsys_error("%s: server already created");
+        return -1;
+    }
+
+    self->server = zactor_new(zperf_server, (void*)nickname);
+    if (self->verbose) {
+        zstr_send (self->server, "VERBOSE");
+    }
+    zpoller_add(self->poller, zactor_sock(self->server));
+
+    if (self->verbose) {
+        zsys_debug("%s: make server %s", self->name, nickname);
+    }
+    return 0;
+}
+
+static int
+zpnode_client (zpnode_t *self)
+{
+    assert (self);
+    if (self->client) {
+        zsys_error("%s: client already created");
+        return -1;
+    }
+
+    self->client = zperf_client_new();
+    if (self->verbose) {
+        zstr_send (self->client, "VERBOSE");
+    }
+    zpoller_add(self->poller, zperf_client_msgpipe(self->client));
+
+    if (self->verbose) {
+        zsys_debug("%s: make client", self->name);
+    }
+    return 0;
+}
+
 
 //  Here we handle incoming message from the node
 
@@ -129,10 +180,12 @@ zpnode_recv_api (zpnode_t *self)
         zpnode_stop (self);
     }
     else if (streq (command, "SERVER")) {
-        // 
+        char* nickname = zmsg_popstr(request);
+        zpnode_server(self, nickname);
+        free(nickname);
     }
     else if (streq (command, "CLIENT")) {
-        // 
+        zpnode_client(self);
     }
     else if (streq (command, "VERBOSE")) {
         self->verbose = true;
@@ -181,6 +234,29 @@ s_self_handle_zyre (zpnode_t *self)
     zyre_event_destroy (&event);
 }
 
+static void
+s_self_handle_server (zpnode_t *self)
+{
+    zmsg_t *request = zmsg_recv (zactor_sock(self->server));
+    char *command = zmsg_popstr (request);
+    if (self->verbose) {
+        zsys_debug("%s: server sends: %s", self->name, command);
+    }
+}
+
+static void
+s_self_handle_client (zpnode_t *self)
+{
+    zperf_msg_t* zpm = zperf_msg_new();
+    zperf_msg_recv(zpm, zperf_client_msgpipe(self->client));
+
+    if (self->verbose) {
+        zsys_debug("%s: client sends msg", self->name);
+        zperf_msg_print(zpm);
+    }
+
+    zperf_msg_destroy(&zpm);
+}
 
 //  --------------------------------------------------------------------------
 //  This is the actor which runs in its own thread.
@@ -197,12 +273,27 @@ zpnode_actor (zsock_t *pipe, void *args)
 
     while (!self->terminated) {
         zsock_t *which = (zsock_t *) zpoller_wait (self->poller, 0);
+        if (!which) {
+            continue;
+        }
         if (which == self->pipe) {
             zpnode_recv_api (self);
+            continue;
         }
-        else if (which == zyre_socket(self->zyre)) {
+        if (which == zyre_socket(self->zyre)) {
             s_self_handle_zyre(self);
+            continue;
         }
+        if (self->server && which == zactor_sock(self->server)) {
+            s_self_handle_server(self);
+            continue;
+        }
+        if (self->client && which == zperf_client_msgpipe(self->client)) {
+            s_self_handle_client(self);
+            continue;
+        }
+
+        zsys_error("%s: unexpected socket", self->name);
        //  Add other sockets when you need them.
     }
     zpnode_destroy (&self);
@@ -245,6 +336,9 @@ zpnode_test (bool verbose)
     zstr_send(node2, "START");
 
     zclock_sleep(1000);
+    zsock_send(node1, "ss", "SERVER", "zperf-server1");
+    zsock_send(node2, "ss", "CLIENT", "zperf-client2");
+    
 
     zstr_send(node2, "STOP");
     zstr_send(node1, "STOP");
