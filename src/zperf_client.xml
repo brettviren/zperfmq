@@ -78,8 +78,7 @@
       <action name = "send" message = "MEASURE" />
     </event>
     <event name = "RESULT">
-      <action name = "set results" />
-      <action name = "msg results to caller" />
+      <action name = "signal result" />
     </event>
 
   </state>
@@ -100,9 +99,8 @@
     <event name = "PING OK">
       <action name = "client is connected" />
     </event>
-    <event name = "ERROR" >
+    <event name = "ERROR" next = "have error" >
       <action name = "check status code" />
-      <action name = "terminate" />
     </event>
     <event name = "exception">
       <!-- Generic exception event to interrupt actions -->
@@ -113,6 +111,32 @@
     </event>
   </state>
 
+  <state name = "have error">
+    <event name = "command invalid" next = "reconnecting">
+      <action name = "use connect timeout" />
+      <action name = "send" message = "HELLO" />
+    </event>
+    <event name = "other">
+      <action name = "signal unhandled error" />
+      <action name = "terminate" />
+    </event>
+  </state>
+  
+  <state name = "reconnecting" inherit = "defaults">
+    <event name = "HELLO OK" next = "connected">
+      <action name = "client is connected" />
+    </event>
+  </state>
+
+  <state name = "expect goodbye ok" inherit = "defaults">
+    <event name = "GOODBYE OK">
+      <action name = "signal success" />
+      <action name = "terminate" />
+    </event>
+    <event name = "*">
+      <!-- Ignore anything else the server may send us -->
+    </event>
+  </state>
 
 
   <!-- API methods.  Their names MUST match an event! -->
@@ -173,6 +197,7 @@
     available on success.
 
     <field name = "ident"   type = "string">ID for the perf instance</field>
+    <field name = "measure" type = "string">Measure type (echo, yodel, send, recv)</field>
     <field name = "nmsgs"   type = "number" size = "4" >Number of messages to process</field>
     <field name = "msgsize" type = "number" size = "8" >Size of messages to process</field>
     <field name = "timeout" type = "number" size = "4" >Timeout in msec after no activity</field>

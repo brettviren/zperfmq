@@ -156,6 +156,10 @@ static uint64_t s_cpu_now()
 static void
 s_reset(perf_t* self, const char* measure, int nmsgs, size_t msgsize)
 {
+    if (self->verbose) {
+        zsys_debug("perf: %s %d %ld", measure, nmsgs, msgsize);
+    }
+
     assert (self);
     self->measure = measure;
     self->nmsgs = nmsgs;
@@ -201,6 +205,11 @@ void s_send(perf_t* self, int count, zframe_t* frame)
 
     zmsg_send(&msg, self->sock);
 
+    if (self->verbose) {
+        zsys_debug("perf: %s %d %ld %ld",
+                   self->measure, self->nmsgs, self->msgsize,
+                   self->totdata);
+    }
     // zsys_debug("send: %s count %d and frame of size %ld",
     //            self->measure, count, zframe_size(frame));
 }
@@ -277,6 +286,7 @@ static int
 perf_echo (perf_t *self, int nmsgs, size_t msgsize)
 {
     s_reset(self, "ECHO", nmsgs, msgsize);
+
     for (int count=0; count<nmsgs; ++count) {
 
         if (count == 1) {       // start after first yodel received
@@ -383,6 +393,7 @@ perf_recv_api (perf_t *self)
        return;        //  Interrupted
 
     char *command = zmsg_popstr (request);
+
     // BIND <address> ->
     // BIND <fq-address> <port#, zero or err>
     if (streq (command, "BIND")) {

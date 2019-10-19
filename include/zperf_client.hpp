@@ -84,7 +84,7 @@ int
 //  available on success.
 //  Returns >= 0 if successful, -1 if interrupted.
 int
-    zperf_client_request_measure (zperf_client_t *self, const char *ident, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
+    zperf_client_request_measure (zperf_client_t *self, const char *ident, const char *measure, uint32_t nmsgs, uint64_t msgsize, uint32_t timeout);
 
 //  Return last received ident
 const char *

@@ -33,7 +33,9 @@ typedef struct {
     zperf_msg_t *message;       //  Message to/from server
     client_args_t *args;        //  Arguments from methods
 
-    //  TODO: Add specific properties for your application
+    int heartbeat_timer;        //  Timeout for heartbeats to server
+    int retries;                //  How many heartbeats we've tried
+    
 } client_t;
 
 //  Include the generated client engine
@@ -45,6 +47,8 @@ typedef struct {
 static int
 client_initialize (client_t *self)
 {
+
+    self->heartbeat_timer = 1000;
     return 0;
 }
 
@@ -105,8 +109,19 @@ zperf_client_test (bool verbose)
     rc = zperf_client_request_borc(client, yodel, "CONNECT", ep);
     assert(rc == 0);
 
+    int nmsgs = 1000, tout=0;
+    size_t msgsize = 1024;
+
+    rc = zperf_client_request_measure(client, echo, "ECHO",
+                                      nmsgs, msgsize, tout);
+    assert(rc == 0);
+
+    rc = zperf_client_request_measure(client, yodel, "YODEL",
+                                      nmsgs, msgsize, tout);
+    assert(rc == 0);
     
     
+
 
     zperf_client_destroy (&client);
     zsys_debug("client destroyed");
@@ -185,10 +200,9 @@ signal_connected (client_t *self)
 static void
 client_is_connected (client_t *self)
 {
-    // fixme: replicate hydra's heartbeat
-    // self->retries = 0;
-    // engine_set_connected (self, true);
-    // engine_set_timeout (self, self->heartbeat_timer);
+    self->retries = 0;
+    engine_set_connected (self, true);
+    engine_set_timeout (self, self->heartbeat_timer);
 }
 
 
@@ -312,6 +326,11 @@ signal_socket_request (client_t *self)
 static void
 set_measurement_request (client_t *self)
 {
+    // zperf_msg_set_ident(self->message, self->args->ident);
+    zperf_msg_set_measure(self->message, self->args->measure);
+    zperf_msg_set_nmsgs(self->message, self->args->nmsgs);
+    zperf_msg_set_msgsize(self->message, self->args->msgsize);
+    zperf_msg_set_timeout(self->message, self->args->timeout);
 }
 
 
@@ -320,18 +339,18 @@ set_measurement_request (client_t *self)
 //
 
 static void
-set_results (client_t *self)
+signal_result (client_t *self)
 {
-}
-
-
-//  ---------------------------------------------------------------------------
-//  signal_results
-//
-
-static void
-signal_results (client_t *self)
-{
+    zsock_send(self->cmdpipe, "ss4848848",
+               "RESULT",
+               zperf_msg_ident(self->message),
+               zperf_msg_nmsgs(self->message),
+               zperf_msg_msgsize(self->message),
+               zperf_msg_timeout(self->message),
+               zperf_msg_time_us(self->message),
+               zperf_msg_cpu_us(self->message),
+               zperf_msg_noos(self->message),
+               zperf_msg_nbytes(self->message));
 }
 
 
@@ -342,6 +361,7 @@ signal_results (client_t *self)
 static void
 signal_success (client_t *self)
 {
+    zsock_send (self->cmdpipe, "si", "SUCCESS", 0);
 }
 
 
@@ -352,7 +372,14 @@ signal_success (client_t *self)
 static void
 check_if_connection_is_dead (client_t *self)
 {
+    if (++self->retries >= 3) {
+        engine_set_timeout (self, 0);
+        engine_set_connected (self, false);
+        engine_set_exception (self, exception_event);
+    }
 }
+
+
 
 
 //  ---------------------------------------------------------------------------
@@ -362,6 +389,12 @@ check_if_connection_is_dead (client_t *self)
 static void
 check_status_code (client_t *self)
 {
+    if (zperf_msg_status (self->message) == ZPERF_MSG_COMMAND_INVALID) {
+        engine_set_next_event (self, command_invalid_event);
+    }
+    else {
+        engine_set_next_event (self, other_event);
+    }
 }
 
 
@@ -372,6 +405,8 @@ check_status_code (client_t *self)
 static void
 signal_internal_error (client_t *self)
 {
+    zsock_send (self->cmdpipe, "sis", "FAILURE", -1, "Internal server error");
+    zsock_send (self->msgpipe, "sis", "FAILURE", -1, "Internal server error");
 }
 
 
@@ -397,3 +432,15 @@ msg_results_to_caller (client_t *self)
 {
 }
 
+
+
+//  ---------------------------------------------------------------------------
+//  signal_unhandled_error
+//
+
+static void
+signal_unhandled_error (client_t *self)
+{
+    zsock_send (self->cmdpipe, "sis", "FAILURE", -1, "Unhandled error");
+    zsock_send (self->msgpipe, "sis", "FAILURE", -1, "Unhandled error");
+}

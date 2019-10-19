@@ -175,6 +175,10 @@ create_perf (client_t *self)
     zsock_t* actor_socket = zactor_sock(pi->actor);
     engine_handle_socket (self->server, actor_socket, s_server_handle_perf);
 
+    if (engine_verbose(self->server)) {
+        zsock_send(actor_socket, "s", "VERBOSE");
+    }
+
     // this key lets us find the perfinfo from the actor pipe handler
     char* ident = zsys_sprintf("%lX", actor_socket);
     int rc = zhashx_insert(self->server->perfinfos, ident, pi);
@@ -264,7 +268,7 @@ start_measure (client_t *self)
     bool ok = streq(measure, "ECHO") || streq(measure, "YODEL")
         || streq(measure, "SEND") || streq(measure, "RECV");
     if (!ok) {
-        zsys_debug("got unknown measure: %s", measure);
+        zsys_debug("got unknown measure: \"%s\"", measure);
         engine_set_exception(self, exception_event);
         return;
     }
@@ -278,6 +282,9 @@ start_measure (client_t *self)
     assert(rc == 0);
 
     zlist_append(pi->waiting, (void*)self);
+
+    zsys_debug("zperf-server::start_measure: %s %d %ld, %d waiting",
+               measure, nmsgs, msgsize, zlist_size(pi->waiting));
 }
 
 static
@@ -359,6 +366,7 @@ s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)
     zstr_free(&command);
     zmsg_destroy(&request);
 
+    return 0;
 }
 
 

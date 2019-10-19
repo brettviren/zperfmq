@@ -3,6 +3,8 @@ digraph "zperf_client" {
  "expect hello ok" -> "defaults" [style=dotted,arrowhead=empty]
  "connected" -> "defaults" [style=dotted,arrowhead=empty]
  "have perf" -> "connected" [style=dotted,arrowhead=empty]
+ "reconnecting" -> "defaults" [style=dotted,arrowhead=empty]
+ "expect goodbye ok" -> "defaults" [style=dotted,arrowhead=empty]
 
  "start" [shape = "doublecircle"];
  "start say hello" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">say hello</font></td></tr><tr><td align="left" port="r3">set nickname</td></tr><tr><td align="left" port="r3">use connect timeout</td></tr><tr><td align="left" port="r3">connect to server</td></tr><tr><td align="left" port="r3">send (hello)</td></tr></table>>];
@@ -44,7 +46,7 @@ digraph "zperf_client" {
  "have perf request measure" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">request measure</font></td></tr><tr><td align="left" port="r3">set ident</td></tr><tr><td align="left" port="r3">set measurement request</td></tr><tr><td align="left" port="r3">send (measure)</td></tr></table>>];
  "have perf" -> "have perf request measure";
  "have perf request measure" -> "have perf";
- "have perf result" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">result</font></td></tr><tr><td align="left" port="r3">set results</td></tr><tr><td align="left" port="r3">msg results to caller</td></tr></table>>];
+ "have perf result" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">result</font></td></tr><tr><td align="left" port="r3">signal result</td></tr></table>>];
  "have perf" -> "have perf result";
  "have perf result" -> "have perf";
 
@@ -61,13 +63,34 @@ digraph "zperf_client" {
  "defaults ping ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">ping ok</font></td></tr><tr><td align="left" port="r3">client is connected</td></tr></table>>];
  "defaults" -> "defaults ping ok";
  "defaults ping ok" -> "defaults";
- "defaults error" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">error</font></td></tr><tr><td align="left" port="r3">check status code</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "defaults error" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">error</font></td></tr><tr><td align="left" port="r3">check status code</td></tr></table>>];
  "defaults" -> "defaults error";
- "defaults error" -> "defaults";
+ "defaults error" -> "have error";
  "defaults exception" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">exception</font></td></tr></table>>];
  "defaults" -> "defaults exception";
  "defaults exception" -> "defaults";
  "defaults *" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr><tr><td align="left" port="r3">signal internal error</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
  "defaults" -> "defaults *";
  "defaults *" -> "defaults";
+
+ "have error" [shape = "doublecircle"];
+ "have error command invalid" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">command invalid</font></td></tr><tr><td align="left" port="r3">use connect timeout</td></tr><tr><td align="left" port="r3">send (hello)</td></tr></table>>];
+ "have error" -> "have error command invalid";
+ "have error command invalid" -> "reconnecting";
+ "have error other" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">other</font></td></tr><tr><td align="left" port="r3">signal unhandled error</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "have error" -> "have error other";
+ "have error other" -> "have error";
+
+ "reconnecting" [shape = "doublecircle"];
+ "reconnecting hello ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">hello ok</font></td></tr><tr><td align="left" port="r3">client is connected</td></tr></table>>];
+ "reconnecting" -> "reconnecting hello ok";
+ "reconnecting hello ok" -> "connected";
+
+ "expect goodbye ok" [shape = "doublecircle"];
+ "expect goodbye ok goodbye ok" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">goodbye ok</font></td></tr><tr><td align="left" port="r3">signal success</td></tr><tr><td align="left" port="r3">terminate</td></tr></table>>];
+ "expect goodbye ok" -> "expect goodbye ok goodbye ok";
+ "expect goodbye ok goodbye ok" -> "expect goodbye ok";
+ "expect goodbye ok *" [shape = "Mrecord" style = solid label = <<table border="0" cellborder="0" cellpadding="3" bgcolor="white"><tr><td bgcolor="black" align="center" colspan="2"><font color="white">*</font></td></tr></table>>];
+ "expect goodbye ok" -> "expect goodbye ok *";
+ "expect goodbye ok *" -> "expect goodbye ok";
 }
