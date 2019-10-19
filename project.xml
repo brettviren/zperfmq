@@ -28,12 +28,16 @@
     serviced.  
   </actor>
 
-  <class name="zperf">
-    Synchronous API to perf actor.
+  <class name = "zperf_node">
+    API to a zpnode.
   </class>
 
-  <class name="zperf_node">
-    A zperf node which bundles clients, servers and Zyre.
+  <actor name = "zpnode">
+    An actor managing a Zyre node and a bundle of zperf clients and servers.
+  </actor>
+
+  <class name="zperf">
+    Synchronous API to perf actor.
   </class>
 
   <class name = "zperf_msg" />

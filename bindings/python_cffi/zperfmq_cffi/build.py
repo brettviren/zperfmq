@@ -84,6 +84,7 @@ if not pkgconfig_installed ():
     sys.exit (1)
 
 kwargs = pkgconfig_kwargs ([
+    "libzyre",
     "libzmq",
     "libczmq",
     "libzperfmq"
@@ -110,9 +111,6 @@ ffidestructorbuilder.cdef('''
 void
    zperf_destroy_py (void *self);
 
-void
-   zperfmq_destroy_py (void *self);
-
 ''')
 
 ffidestructorbuilder.set_source ("zperfmq_cffi.destructors", '''
@@ -121,12 +119,6 @@ void
 zperf_destroy_py (void *self)
 {
    zperf_destroy ((zperf_t **) &self);
-}
-
-void
-zperfmq_destroy_py (void *self)
-{
-   zperfmq_destroy ((zperfmq_t **) &self);
 }
 
 ''', **kwargs)

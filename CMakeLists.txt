@@ -165,12 +165,13 @@ set (zperfmq_headers
 
 IF (ENABLE_DRAFTS)
     list(APPEND zperfmq_headers
-        include/zperf.hpp
         include/zperf_node.hpp
+        include/zperf.hpp
         include/zperf_msg.hpp
         include/zperf_server.hpp
         include/zperf_client.hpp
         include/perf.hpp
+        include/zpnode.hpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -188,12 +189,13 @@ set (zperfmq_sources
 
 IF (ENABLE_DRAFTS)
     list (APPEND zperfmq_sources
-        src/zperf.cpp
         src/zperf_node.cpp
+        src/zperf.cpp
         src/zperf_msg.cpp
         src/zperf_server.cpp
         src/zperf_client.cpp
         src/perf.cpp
+        src/zpnode.cpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -421,12 +423,13 @@ set(TEST_CLASSES
 
 IF (ENABLE_DRAFTS)
     list (APPEND TEST_CLASSES
-    zperf
     zperf_node
+    zperf
     zperf_msg
     zperf_server
     zperf_client
     perf
+    zpnode
     )
 ENDIF (ENABLE_DRAFTS)
 

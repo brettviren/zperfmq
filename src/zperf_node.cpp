@@ -1,5 +1,5 @@
 /*  =========================================================================
-    zperf_node - API to a zperf agent which combines client, server and Zyre actor.
+    zperf_node - API to a zpnode.
 
     LGPL 3.0
     =========================================================================
@@ -7,7 +7,7 @@
 
 /*
 @header
-    zperf_node - API to a zperf agent which combines client, server and Zyre actor.
+    zperf_node - API to a zpnode.
 @discuss
 @end
 */

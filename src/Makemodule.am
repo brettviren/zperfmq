@@ -19,14 +19,15 @@ src_libzperfmq_la_SOURCES = \
 
 if ENABLE_DRAFTS
 src_libzperfmq_la_SOURCES += \
-    src/zperf.cpp \
     src/zperf_node.cpp \
+    src/zperf.cpp \
     src/zperf_msg.cpp \
     src/zperf_server.cpp \
     src/zperf_server_engine.inc \
     src/zperf_client.cpp \
     src/zperf_client_engine.inc \
-    src/perf.cpp
+    src/perf.cpp \
+    src/zpnode.cpp
 
 endif
 
@@ -75,8 +76,7 @@ endif #ENABLE_ZPERFMQ_SELFTEST
 apidir = @datadir@/zproject/zperfmq
 dist_api_DATA = \
     api/python_cffi.slurp \
-    api/zperf.xml \
-    api/zperf_node.xml
+    api/zperf.xml
 
 # define custom target for all products of /src
 src: \

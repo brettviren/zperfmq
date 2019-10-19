@@ -86,4 +86,6 @@
   </state>
 
 
+  <method name = "frob" />
+
 </class>

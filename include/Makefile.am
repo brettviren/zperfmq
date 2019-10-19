@@ -8,12 +8,13 @@ nobase_include_HEADERS = \
 
 if ENABLE_DRAFTS
 nobase_include_HEADERS += \
-    zperf.hpp \
     zperf_node.hpp \
+    zperf.hpp \
     zperf_msg.hpp \
     zperf_server.hpp \
     zperf_client.hpp \
-    perf.hpp
+    perf.hpp \
+    zpnode.hpp
 
 endif
 

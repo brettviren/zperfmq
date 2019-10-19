@@ -11,10 +11,10 @@
 *.xml7
 
 # Ignore the source doc texts generated from program sources
-zperf.txt
-zperf.doc
 zperf_node.txt
 zperf_node.doc
+zperf.txt
+zperf.doc
 zperf_msg.txt
 zperf_msg.doc
 zperf_server.txt
@@ -23,6 +23,8 @@ zperf_client.txt
 zperf_client.doc
 perf.txt
 perf.doc
+zpnode.txt
+zpnode.doc
 zperfcli.txt
 zperfcli.doc
 
