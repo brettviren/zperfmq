@@ -93,23 +93,6 @@ set(OPTIONAL_LIBRARIES)
 set(OPTIONAL_LIBRARIES_STATIC)
 
 ########################################################################
-# ZYRE dependency
-########################################################################
-find_package(zyre REQUIRED)
-IF (ZYRE_FOUND)
-    include_directories(${ZYRE_INCLUDE_DIRS})
-    list(APPEND MORE_LIBRARIES ${ZYRE_LIBRARIES})
-  IF (PC_ZYRE_FOUND)
-      set(pkg_config_names_private "${pkg_config_names_private} libzyre")
-      list(APPEND OPTIONAL_LIBRARIES_STATIC ${PC_ZYRE_STATIC_LDFLAGS})
-  ELSE (PC_ZYRE_FOUND)
-      set(pkg_config_libs_private "${pkg_config_libs_private} -lzyre")
-  ENDIF (PC_ZYRE_FOUND)
-ELSE (ZYRE_FOUND)
-    message( FATAL_ERROR "zyre not found." )
-ENDIF (ZYRE_FOUND)
-
-########################################################################
 # LIBZMQ dependency
 ########################################################################
 find_package(libzmq REQUIRED)
@@ -166,13 +149,11 @@ set (zperfmq_headers
 
 IF (ENABLE_DRAFTS)
     list(APPEND zperfmq_headers
-        include/zperf_node.hpp
         include/zperf.hpp
         include/zperf_msg.hpp
         include/zperf_server.hpp
         include/zperf_client.hpp
         include/perf.hpp
-        include/zpnode.hpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -190,13 +171,11 @@ set (zperfmq_sources
 
 IF (ENABLE_DRAFTS)
     list (APPEND zperfmq_sources
-        src/zperf_node.cpp
         src/zperf.cpp
         src/zperf_msg.cpp
         src/zperf_server.cpp
         src/zperf_client.cpp
         src/perf.cpp
-        src/zpnode.cpp
     )
 ENDIF (ENABLE_DRAFTS)
 
@@ -360,7 +339,6 @@ if (TARGET zperfmq)
 target_link_libraries(
     zperfcli
     zperfmq
-    ${ZYRE_LIBRARIES}
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
@@ -370,7 +348,6 @@ if (NOT TARGET zperfmq AND TARGET zperfmq-static)
 target_link_libraries(
     zperfcli
     zperfmq-static
-    ${ZYRE_LIBRARIES}
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
@@ -388,7 +365,6 @@ if (TARGET zperfmq)
 target_link_libraries(
     zperfmq_selftest
     zperfmq
-    ${ZYRE_LIBRARIES}
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
@@ -398,7 +374,6 @@ if (NOT TARGET zperfmq AND TARGET zperfmq-static)
 target_link_libraries(
     zperfmq_selftest
     zperfmq-static
-    ${ZYRE_LIBRARIES}
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
@@ -424,13 +399,11 @@ set(TEST_CLASSES
 
 IF (ENABLE_DRAFTS)
     list (APPEND TEST_CLASSES
-    zperf_node
     zperf
     zperf_msg
     zperf_server
     zperf_client
     perf
-    zpnode
     )
 ENDIF (ENABLE_DRAFTS)
 

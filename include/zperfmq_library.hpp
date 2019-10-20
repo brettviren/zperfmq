@@ -16,7 +16,6 @@
 //  Set up environment for the application
 
 //  External dependencies
-#include <zyre.h>
 #include <czmq.h>
 
 //  ZPERFMQ version macros for compile-time API detection
@@ -65,8 +64,6 @@
 //  These classes are stable or legacy and built in all releases
 //  Draft classes are by default not built in stable releases
 #ifdef ZPERFMQ_BUILD_DRAFT_API
-typedef struct _zperf_node_t zperf_node_t;
-#define ZPERF_NODE_T_DEFINED
 typedef struct _zperf_t zperf_t;
 #define ZPERF_T_DEFINED
 typedef struct _zperf_msg_t zperf_msg_t;
@@ -77,20 +74,16 @@ typedef struct _zperf_client_t zperf_client_t;
 #define ZPERF_CLIENT_T_DEFINED
 typedef struct _perf_t perf_t;
 #define PERF_T_DEFINED
-typedef struct _zpnode_t zpnode_t;
-#define ZPNODE_T_DEFINED
 #endif // ZPERFMQ_BUILD_DRAFT_API
 
 
 //  Public classes, each with its own header file
 #ifdef ZPERFMQ_BUILD_DRAFT_API
-#include "zperf_node.hpp"
 #include "zperf.hpp"
 #include "zperf_msg.hpp"
 #include "zperf_server.hpp"
 #include "zperf_client.hpp"
 #include "perf.hpp"
-#include "zpnode.hpp"
 #endif // ZPERFMQ_BUILD_DRAFT_API
 
 #ifdef ZPERFMQ_BUILD_DRAFT_API

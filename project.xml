@@ -10,7 +10,6 @@
   <include filename = "license.xml" />
   <version major = "0" minor = "0" patch = "0" />
 
-  <use project = "zyre" />
   <use project = "czmq" />
 
   <classfilename use-cxx = "true" use-cxx-gcc-4-9 = "true"
@@ -28,13 +27,6 @@
     serviced.  
   </actor>
 
-  <class name = "zperf_node">
-    API to a zpnode.
-  </class>
-
-  <actor name = "zpnode">
-    An actor managing a Zyre node and a bundle of zperf clients and servers.
-  </actor>
 
   <class name="zperf">
     Synchronous API to perf actor.

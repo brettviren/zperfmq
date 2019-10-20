@@ -42,85 +42,9 @@ if not lib:
             raise ImportError("Unable to find libzperfmq")
         lib = cdll.LoadLibrary(libpath)
 
-class zperf_node_t(Structure):
-    pass # Empty - only for type checking
-zperf_node_p = POINTER(zperf_node_t)
-
 class zperf_t(Structure):
     pass # Empty - only for type checking
 zperf_p = POINTER(zperf_t)
-
-
-# zperf_node
-lib.zperf_node_new.restype = zperf_node_p
-lib.zperf_node_new.argtypes = [c_char_p]
-lib.zperf_node_destroy.restype = None
-lib.zperf_node_destroy.argtypes = [POINTER(zperf_node_p)]
-lib.zperf_node_server.restype = None
-lib.zperf_node_server.argtypes = [zperf_node_p, c_char_p]
-lib.zperf_node_test.restype = None
-lib.zperf_node_test.argtypes = [c_bool]
-
-class ZperfNode(object):
-    """
-
-    """
-
-    allow_destruct = False
-    def __init__(self, *args):
-        """
-        Create a new zperf_node.
-        """
-        if len(args) == 2 and type(args[0]) is c_void_p and isinstance(args[1], bool):
-            self._as_parameter_ = cast(args[0], zperf_node_p) # Conversion from raw type to binding
-            self.allow_destruct = args[1] # This is a 'fresh' value, owned by us
-        elif len(args) == 2 and type(args[0]) is zperf_node_p and isinstance(args[1], bool):
-            self._as_parameter_ = args[0] # Conversion from raw type to binding
-            self.allow_destruct = args[1] # This is a 'fresh' value, owned by us
-        else:
-            assert(len(args) == 1)
-            self._as_parameter_ = lib.zperf_node_new(args[0]) # Creation of new raw type
-            self.allow_destruct = True
-
-    def __del__(self):
-        """
-        Destroy the zperf_node.
-        """
-        if self.allow_destruct:
-            lib.zperf_node_destroy(byref(self._as_parameter_))
-
-    def __eq__(self, other):
-        if type(other) == type(self):
-            return other.c_address() == self.c_address()
-        elif type(other) == c_void_p:
-            return other.value == self.c_address()
-
-    def c_address(self):
-        """
-        Return the address of the object pointer in c.  Useful for comparison.
-        """
-        return addressof(self._as_parameter_.contents)
-
-    def __bool__(self):
-        "Determine whether the object is valid by converting to boolean" # Python 3
-        return self._as_parameter_.__bool__()
-
-    def __nonzero__(self):
-        "Determine whether the object is valid by converting to boolean" # Python 2
-        return self._as_parameter_.__nonzero__()
-
-    def server(self, nickname):
-        """
-        Create a server in the node.
-        """
-        return lib.zperf_node_server(self._as_parameter_, nickname)
-
-    @staticmethod
-    def test(verbose):
-        """
-        Self test of this class.
-        """
-        return lib.zperf_node_test(verbose)
 
 
 # zperf

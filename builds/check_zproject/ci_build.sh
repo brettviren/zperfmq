@@ -9,7 +9,6 @@ set -ex
 # Note: certain zproject scripts that deal with deeper dependencies expect that
 # such checkouts are directly in the same parent directory as "this" project.
 cd "$REPO_DIR/.."
-git clone --quiet --depth 1 https://github.com/zeromq/zyre.git zyre
 git clone --quiet --depth 1 https://github.com/zeromq/libzmq.git libzmq
 git clone --quiet --depth 1 https://github.com/zeromq/czmq.git czmq
 cd -
