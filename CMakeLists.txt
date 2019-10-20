@@ -161,6 +161,7 @@ set (zperfmq_headers
     include/zperfmq.hpp
     src/zperf_server_engine.inc
     src/zperf_client_engine.inc
+    src/zperf_util.cpp
 )
 
 IF (ENABLE_DRAFTS)

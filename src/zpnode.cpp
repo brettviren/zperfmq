@@ -13,6 +13,7 @@
 */
 
 #include "zperfmq_classes.hpp"
+#include "zperf_util.hpp"
 
 // Set the Zyre header key names used.  We take a hint about the
 // deprecation of "X-" prefix in HTTP header names and don't use it
@@ -286,6 +287,11 @@ zpnode_connect(zpnode_t* self, const char* servername)
                                            peer_uuid, ZPERF_SERVER_NICKNAME);
         char* ep = zyre_peer_header_value (self->zyre,
                                            peer_uuid, ZPERF_SERVER_ENDPOINT);
+        if (self->verbose) {
+            if (nn) zsys_debug("%s: see server nickname %s", self->name, nn);
+            if (ep) zsys_debug("%s: see server endpoint %s", self->name, ep);
+        }
+
         if (nn && ep) {
             if (streq(nn, servername)) {
                 found_it = true;
@@ -306,8 +312,47 @@ zpnode_connect(zpnode_t* self, const char* servername)
     if (found_it) {
         return 0;
     }
-
+    if (self->verbose) {
+        zsys_debug("%s: client will wait for discovery of %s",
+                   self->name, servername);
+    }
     zhashx_insert(self->wanted_connections, servername, strdup(servername));
+    return 0;
+}
+
+static int
+zpnode_latency(zpnode_t* self, const char* sn1, const char* sn2,
+               int nmsgs, size_t msgsize)
+{
+    zperf_client_t* c1 = (zperf_client_t*)zhashx_lookup(self->connections, sn1);
+    zperf_client_t* c2 = (zperf_client_t*)zhashx_lookup(self->connections, sn2);
+    assert (c1 && c2);
+
+    int rc = 0;
+
+    rc = zperf_client_create_perf(c1, ZMQ_REP);
+    assert(rc == 0);
+    const char* ident1 = zperf_client_ident(c1);
+    rc = zperf_client_create_perf(c2, ZMQ_REQ);
+    assert(rc == 0);
+    const char* ident2 = zperf_client_ident(c2);
+    
+    rc = zperf_client_launch_measure(c1, ident1, "ECHO", nmsgs, msgsize, 0);
+    assert(rc == 0);
+    rc = zperf_client_status(c1);
+    assert(rc == 0);
+
+    rc = zperf_client_launch_measure(c2, ident2, "YODEL", nmsgs, msgsize, 0);
+    assert(rc == 0);
+    rc = zperf_client_status(c2);
+    assert(rc == 0);
+
+    zmsg_t* msg = NULL;
+    msg = zmsg_recv(zperf_client_msgpipe(c1));
+    zmsg_send(&msg, self->pipe); 
+    msg = zmsg_recv(zperf_client_msgpipe(c2));
+    zmsg_send(&msg, self->pipe); 
+    
     return 0;
 }
 
@@ -342,6 +387,15 @@ zpnode_recv_api (zpnode_t *self)
         zpnode_connect(self, servername);
         free(servername);
     }
+    else if (streq (command, "LATENCY")) {
+        char* sn1 = zmsg_popstr(request);
+        char* sn2 = zmsg_popstr(request);
+        int nmsgs = pop_int(request);
+        size_t msgsize = pop_long(request);
+        zpnode_latency(self, sn1, sn2, nmsgs, msgsize);
+        free(sn1);
+        free(sn2);
+    }
     else if (streq (command, "VERBOSE")) {
         self->verbose = true;
         zyre_set_verbose(self->zyre);
@@ -360,7 +414,7 @@ zpnode_recv_api (zpnode_t *self)
 
 
 static void
-s_self_handle_zyre (zpnode_t *self)
+zpnode_handle_zyre (zpnode_t *self)
 {
     zyre_event_t *event = zyre_event_new (self->zyre);
     zsys_debug("%s: peer %s, ID %s, event: %s",
@@ -437,7 +491,7 @@ zpnode_actor (zsock_t *pipe, void *args)
             continue;
         }
         if (which == zyre_socket(self->zyre)) {
-            s_self_handle_zyre(self);
+            zpnode_handle_zyre(self);
             continue;
         }
         if (self->server && which == zactor_sock(self->server)) {
@@ -488,6 +542,7 @@ zpnode_test (bool verbose)
         zstr_send(node2, "VERBOSE");
     }
 
+    int rc = 0;
     zsock_send(node2, "ss", "SERVER", "zperf-server2");
     zsock_send(node2, "ss", "CONNECT", "zperf-server2"); // post connect
     zsock_send(node2, "ss", "CONNECT", "zperf-server1"); // pre connect
@@ -496,12 +551,36 @@ zpnode_test (bool verbose)
     zsock_send(node1, "ss", "SERVER", "zperf-server1");
     zstr_send(node1, "START");
 
-
     zclock_sleep(1000);
+
+    zperf_msg_t* msg = zperf_msg_new();
+    int nmsgs = 1000;
+    size_t msgsize = 1024;
+
+    zsock_send(node2, "sssi8", "LATENCY", "zperf-server1", "zperf-server2",
+               nmsgs, msgsize);
+    rc = zperf_msg_recv(msg, zactor_sock(node2));
+    assert (rc == 0);
+    zperf_msg_print(msg);
+
+    rc = zperf_msg_recv(msg, zactor_sock(node2));
+    assert (rc == 0);    
+    zperf_msg_print(msg);
+
+    // zsock_send(node2, "sssi8", "THROUGHPUT", "zperf-server1", "zperf-server2",
+    //            nmsgs, msgsize);
+    // rc = zperf_msg_recv(msg1, node2);
+    // assert (rc == 0);
+    // zperf_msg_print(msg);
+
+    // rc = zperf_msg_recv(msg2, node2);
+    // assert (rc == 0);    
+    // zperf_msg_print(msg);
 
     zstr_send(node2, "STOP");
     zstr_send(node1, "STOP");
 
+    zperf_msg_destroy (&msg);
     zactor_destroy (&node2);
     zactor_destroy (&node1);
     //  @end

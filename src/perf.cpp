@@ -29,6 +29,7 @@ serviced.
 #include "zperfmq_classes.hpp"
 #include <sys/time.h>
 #include <sys/resource.h>
+#include "zperf_util.hpp"
 
 //  Structure of our actor
 
@@ -364,25 +365,6 @@ perf_recv (perf_t *self, int nmsgs, size_t msgsize)
     return s_signal(self);
 }
 
-
-// zsock_send() picture messages are really sprintf()'ed frames.
-static
-int pop_int(zmsg_t* msg)
-{
-    char *value = zmsg_popstr (msg);
-    const int ret = atoi(value);
-    free (value);
-    return ret;
-}
-
-static
-int64_t pop_long(zmsg_t *msg)
-{
-    char *value = zmsg_popstr (msg);
-    const int64_t ret = atol(value);
-    free (value);
-    return ret;
-}
 
 //  Here we handle incoming message from the node
 

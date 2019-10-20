@@ -17,6 +17,7 @@
 //  TODO: Change these to match your project's needs
 #include "../include/zperf_msg.hpp"
 #include "../include/zperf_server.hpp"
+#include "zperf_util.hpp"
 
 //  ---------------------------------------------------------------------------
 //  Forward declarations for the two main classes we use here
@@ -287,23 +288,23 @@ start_measure (client_t *self)
                measure, nmsgs, msgsize, zlist_size(pi->waiting));
 }
 
-static
-int pop_int(zmsg_t* msg)
-{
-    char *value = zmsg_popstr (msg);
-    const int ret = atoi(value);
-    free (value);
-    return ret;
-}
+// static
+// int pop_int(zmsg_t* msg)
+// {
+//     char *value = zmsg_popstr (msg);
+//     const int ret = atoi(value);
+//     free (value);
+//     return ret;
+// }
 
-static
-int64_t pop_long(zmsg_t *msg)
-{
-    char *value = zmsg_popstr (msg);
-    const int64_t ret = atol(value);
-    free (value);
-    return ret;
-}
+// static
+// int64_t pop_long(zmsg_t *msg)
+// {
+//     char *value = zmsg_popstr (msg);
+//     const int64_t ret = atol(value);
+//     free (value);
+//     return ret;
+// }
 
 static int
 s_server_handle_perf (zloop_t* loop, zsock_t* pipe, void* argument)

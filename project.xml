@@ -50,6 +50,7 @@
 
   <extra name = "zperf_server_engine.inc" />
   <extra name = "zperf_client_engine.inc" />
+  <extra name = "zperf_util.cpp" />
 
   <main name="zperfcli" />
 
