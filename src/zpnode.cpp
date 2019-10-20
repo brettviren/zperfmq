@@ -14,7 +14,11 @@
 
 #include "zperfmq_classes.hpp"
 
-#define ZPERF_SERVER_HEADER "X-ZPERF-SERVER"
+// Set the Zyre header key names used.  We take a hint about the
+// deprecation of "X-" prefix in HTTP header names and don't use it
+// here, although other Zyre apps do use the "X-" prefix.
+#define ZPERF_SERVER_ENDPOINT "ZPERF-SERVER-ENDPOINT"
+#define ZPERF_SERVER_NICKNAME "ZPERF-SERVER-NICKNAME"
 
 //  Structure of our actor
 
@@ -28,10 +32,26 @@ struct _zpnode_t {
     const char* name;
     zyre_t* zyre;
     bool started;
-    zactor_t* server;
-    zperf_client_t* client;
+
+    zhashx_t* connections;      // server name -> zperf_client
+    zhashx_t* wanted_connections; // server names we wait to discover
+
+    zactor_t* server;           // we may also run a server.
+    char* server_nickname;
+    char* server_endpoint;
+
 };
 
+
+static void
+s_connection_destroy(zperf_client_t** self_p)
+{
+    assert (self_p);
+    if (! *self_p) { return;}
+    zperf_client_t* self = *self_p;
+    zperf_client_destroy(&self);
+    *self_p = 0;
+}
 
 //  --------------------------------------------------------------------------
 //  Create a new zpnode instance
@@ -50,7 +70,11 @@ zpnode_new (zsock_t *pipe, void *args)
     self->name = (const char*)args;
     self->zyre = zyre_new(self->name);
     self->server = NULL;
-    self->client = NULL;
+
+    self->connections = zhashx_new();
+    zhashx_set_destructor(self->connections,
+                          (czmq_destructor*) s_connection_destroy);
+    self->wanted_connections = zhashx_new();
     
     return self;
 }
@@ -71,9 +95,9 @@ zpnode_destroy (zpnode_t **self_p)
         if (self->server) {
             zactor_destroy(&self->server);
         }
-        if (self->client) {
-            zperf_client_destroy(&self->client);
-        }
+        // fixme: free values
+        zhashx_destroy(&self->connections);
+        zhashx_destroy(&self->wanted_connections);
         //  Free object itself
         zpoller_destroy (&self->poller);
         free (self);
@@ -116,6 +140,75 @@ zpnode_stop (zpnode_t *self)
     return 0;
 }
 
+// Ephemeral bind and do a little dance to construct endpoint.  Caller
+// takes endpoint.
+
+static char*
+zpnode_bind_and_endpoint(zpnode_t *self)
+{
+    zstr_sendx (self->server, "BIND", "tcp://*:*", NULL);
+    zsock_send (self->server, "s", "PORT");
+    int port_nbr=0;
+    zsock_recv (self->server, "si", NULL, &port_nbr);    
+    zactor_t *beacon = zactor_new (zbeacon, NULL);
+    assert (beacon);
+    zsock_send (beacon, "si", "CONFIGURE", 31415);
+    char *hostname = zstr_recv (beacon);
+    char* endpoint = zsys_sprintf ("tcp://%s:%d", hostname, port_nbr);
+    zstr_free (&hostname);
+    zactor_destroy (&beacon);    
+    return endpoint;
+}
+    
+
+// Want to connect.  Go through all known zyre peers and if found,
+// then connect, else save requested servername for later to check
+// each time a new zyre peer is discovered.
+
+static int
+zpnode_connect_endpoint(zpnode_t* self, zperf_client_t* client,
+                        const char* endpoint)
+{
+    int rc = zperf_client_say_hello(client, self->name, endpoint);
+    if (self->verbose) {
+        zsys_debug("%s: connect client to %s (%s)",
+                   self->name, endpoint,
+                   rc == 0 ? "success" : "failure");
+    }
+    return rc;
+}
+
+// After learning about a new server we check wanted servers and if
+// found we connect.  Return true if we did a connect.  
+
+static bool
+zpnode_maybe_connect(zpnode_t* self, const char* nn, const char* ep)
+{
+    char* sn = (char*)zhashx_lookup(self->wanted_connections, nn);
+    if (!sn) {
+        return false;
+    }
+
+    zperf_client_t* client = (zperf_client_t*)zhashx_lookup(self->connections, nn);
+    if (!client) {
+        zsys_warning("%s: no existing client for wanted server %s",
+                     self->name, nn);
+        return false;
+    }
+
+    if (self->verbose) {
+        zsys_debug("%s: server %s came online at %s",
+                   self->name, nn, ep);
+    }
+    zpnode_connect_endpoint(self, client, ep);
+    zhashx_delete(self->wanted_connections, nn);
+    free(sn);
+    return true;
+}
+
+
+// Create the server, bind it, add address to zyre
+
 static int
 zpnode_server (zpnode_t *self, const char* nickname)
 {
@@ -125,36 +218,96 @@ zpnode_server (zpnode_t *self, const char* nickname)
         return -1;
     }
 
-    self->server = zactor_new(zperf_server, (void*)nickname);
+    self->server_nickname = strdup(nickname);
+    self->server = zactor_new(zperf_server, (void*)self->server_nickname);
     if (self->verbose) {
         zstr_send (self->server, "VERBOSE");
     }
     zpoller_add(self->poller, zactor_sock(self->server));
 
+    char *endpoint = zpnode_bind_and_endpoint(self);
+    self->server_endpoint = endpoint;
+    zyre_set_header(self->zyre, ZPERF_SERVER_ENDPOINT, "%s", endpoint);
+    zyre_set_header(self->zyre, ZPERF_SERVER_NICKNAME, "%s", nickname);
+
     if (self->verbose) {
-        zsys_debug("%s: make server %s", self->name, nickname);
+        zsys_debug("%s: made server %s at %s",
+                   self->name, nickname, endpoint);
     }
+
+    // zyre does not self-discover, and our client may want to connect
+    // to own own server.
+    zpnode_maybe_connect(self, nickname, endpoint);
+
+
+
     return 0;
 }
 
+// return client associated with server name, creating if needed.
 static int
-zpnode_client (zpnode_t *self)
+zpnode_connect(zpnode_t* self, const char* servername)
 {
     assert (self);
-    if (self->client) {
-        zsys_error("%s: client already created");
-        return -1;
+
+    zperf_client_t* client = (zperf_client_t*)zhashx_lookup(self->connections,
+                                                            servername);
+    if (client) {
+        zsys_warning("%s: already connected to %s", self->name, servername);
+        return 0;
     }
 
-    self->client = zperf_client_new();
+    client = zperf_client_new();
     if (self->verbose) {
-        zstr_send (self->client, "VERBOSE");
+        zstr_send (client, "VERBOSE");
+        zsys_debug("%s: make client for %s", self->name, servername);
     }
-    zpoller_add(self->poller, zperf_client_msgpipe(self->client));
+    zhashx_insert(self->connections, servername, client);
+    zpoller_add(self->poller, zperf_client_msgpipe(client));
 
-    if (self->verbose) {
-        zsys_debug("%s: make client", self->name);
+    // First check if own server matches because zyre doesn't discover self.
+    if (self->server_nickname && streq(self->server_nickname, servername)) {
+        if (self->verbose) {
+            zsys_debug("%s: server %s inside node at %s",
+                       self->name, self->server_nickname,
+                       self->server_endpoint);
+        }
+        return zpnode_connect_endpoint(self, client,
+                                       self->server_endpoint);
     }
+
+    zlist_t* peers = zyre_peers(self->zyre);
+    int npeers = zlist_size(peers);
+    bool found_it = false;
+    for (int ind = 0; ind < npeers; ++ind) {
+        char * peer_uuid = (char*)zlist_pop(peers);
+
+        char* nn = zyre_peer_header_value (self->zyre,
+                                           peer_uuid, ZPERF_SERVER_NICKNAME);
+        char* ep = zyre_peer_header_value (self->zyre,
+                                           peer_uuid, ZPERF_SERVER_ENDPOINT);
+        if (nn && ep) {
+            if (streq(nn, servername)) {
+                found_it = true;
+                if (self->verbose) {
+                    zsys_debug("%s: server %s already online at %s",
+                               self->name, nn, ep);
+                }
+                int rc = zpnode_connect_endpoint(self, client, ep);
+                if (rc != 0) { break; }
+            }
+        }
+        if (nn) { free(nn); }
+        if (ep) { free(ep); }
+
+        free(peer_uuid);
+    }
+    zlist_destroy(&peers);    
+    if (found_it) {
+        return 0;
+    }
+
+    zhashx_insert(self->wanted_connections, servername, strdup(servername));
     return 0;
 }
 
@@ -184,8 +337,10 @@ zpnode_recv_api (zpnode_t *self)
         zpnode_server(self, nickname);
         free(nickname);
     }
-    else if (streq (command, "CLIENT")) {
-        zpnode_client(self);
+    else if (streq (command, "CONNECT")) {
+        char* servername = zmsg_popstr(request);
+        zpnode_connect(self, servername);
+        free(servername);
     }
     else if (streq (command, "VERBOSE")) {
         self->verbose = true;
@@ -203,6 +358,7 @@ zpnode_recv_api (zpnode_t *self)
     zmsg_destroy (&request);
 }
 
+
 static void
 s_self_handle_zyre (zpnode_t *self)
 {
@@ -219,10 +375,10 @@ s_self_handle_zyre (zpnode_t *self)
                    self->name,
                    zyre_event_peer_name(event),
                    zyre_event_peer_uuid(event));
-        const char *endpoint = zyre_event_header (event, ZPERF_SERVER_HEADER);
-        if (endpoint) {
-            zsys_debug("%s: see zper_server at %s",
-                       self->name, endpoint);
+        const char *ep = zyre_event_header (event, ZPERF_SERVER_ENDPOINT);
+        const char *nn = zyre_event_header (event, ZPERF_SERVER_NICKNAME);
+        if (ep && nn) {
+            zpnode_maybe_connect(self, nn, ep);
         }
     }
     else if (streq(zyre_event_type (event), "EXIT")) {
@@ -245,10 +401,10 @@ s_self_handle_server (zpnode_t *self)
 }
 
 static void
-s_self_handle_client (zpnode_t *self)
+s_self_handle_client (zpnode_t *self, zsock_t* sock)
 {
     zperf_msg_t* zpm = zperf_msg_new();
-    zperf_msg_recv(zpm, zperf_client_msgpipe(self->client));
+    zperf_msg_recv(zpm, sock);
 
     if (self->verbose) {
         zsys_debug("%s: client sends msg", self->name);
@@ -288,13 +444,9 @@ zpnode_actor (zsock_t *pipe, void *args)
             s_self_handle_server(self);
             continue;
         }
-        if (self->client && which == zperf_client_msgpipe(self->client)) {
-            s_self_handle_client(self);
-            continue;
-        }
 
-        zsys_error("%s: unexpected socket", self->name);
-       //  Add other sockets when you need them.
+        s_self_handle_client(self, (zsock_t*)which);
+        continue;
     }
     zpnode_destroy (&self);
 }
@@ -322,9 +474,13 @@ zpnode_test (bool verbose)
     zsys_debug("test zpnode: ");
     //  @selftest
     //  Simple create/destroy test
-    zactor_t *node1 = zactor_new (zpnode_actor, (void*)"zpnode-test1");
+
+    // This test makes two nodes.  Both will provide a server and one
+    // will provide connections to both servers.
+
+    zactor_t *node1 = zactor_new (zpnode_actor, (void*)"zpnode1");
     assert (node1);
-    zactor_t *node2 = zactor_new (zpnode_actor, (void*)"zpnode-test2");
+    zactor_t *node2 = zactor_new (zpnode_actor, (void*)"zpnode2");
     assert (node2);
 
     if (verbose) {
@@ -332,13 +488,16 @@ zpnode_test (bool verbose)
         zstr_send(node2, "VERBOSE");
     }
 
-    zstr_send(node1, "START");
+    zsock_send(node2, "ss", "SERVER", "zperf-server2");
+    zsock_send(node2, "ss", "CONNECT", "zperf-server2"); // post connect
+    zsock_send(node2, "ss", "CONNECT", "zperf-server1"); // pre connect
     zstr_send(node2, "START");
 
-    zclock_sleep(1000);
     zsock_send(node1, "ss", "SERVER", "zperf-server1");
-    zsock_send(node2, "ss", "CLIENT", "zperf-client2");
-    
+    zstr_send(node1, "START");
+
+
+    zclock_sleep(1000);
 
     zstr_send(node2, "STOP");
     zstr_send(node1, "STOP");
