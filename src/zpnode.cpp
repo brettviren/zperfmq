@@ -337,6 +337,12 @@ zpnode_latency(zpnode_t* self, const char* sn1, const char* sn2,
     assert(rc == 0);
     const char* ident2 = zperf_client_ident(c2);
     
+    rc = zperf_client_request_borc(c1, ident1, "BIND", "tcp://127.0.0.1:*");
+    assert(rc == 0);
+    const char* ep = zperf_client_endpoint(c1);
+    rc = zperf_client_request_borc(c2, ident2, "CONNECT", ep);
+    assert(rc == 0);
+
     rc = zperf_client_launch_measure(c1, ident1, "ECHO", nmsgs, msgsize, 0);
     assert(rc == 0);
     rc = zperf_client_status(c1);
@@ -347,11 +353,25 @@ zpnode_latency(zpnode_t* self, const char* sn1, const char* sn2,
     rc = zperf_client_status(c2);
     assert(rc == 0);
 
-    zmsg_t* msg = NULL;
-    msg = zmsg_recv(zperf_client_msgpipe(c1));
-    zmsg_send(&msg, self->pipe); 
-    msg = zmsg_recv(zperf_client_msgpipe(c2));
-    zmsg_send(&msg, self->pipe); 
+    zperf_msg_t* zpm = zperf_msg_new();
+
+    rc = zperf_msg_recv(zpm, zperf_client_msgpipe(c1));
+    assert(rc == 0);
+    if (self->verbose) {
+        zsys_debug("%s: got return from ECHO", self->name);
+        zperf_msg_print(zpm);
+    }
+    rc = zperf_msg_send(zpm, self->pipe);
+    assert(rc == 0);
+
+    rc = zperf_msg_recv(zpm, zperf_client_msgpipe(c2));
+    assert(rc == 0);
+    if (self->verbose) {
+        zsys_debug("%s: got return from YODEL", self->name);
+        zperf_msg_print(zpm);
+    }
+    rc = zperf_msg_send(zpm, self->pipe);
+    assert(rc == 0);
     
     return 0;
 }
