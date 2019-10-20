@@ -23,6 +23,12 @@
 
 //  Structure of our actor
 
+
+struct connection_t {
+    zperf_client_t* client;
+    char* perf_ident;
+};
+
 struct _zpnode_t {
     zsock_t *pipe;              //  Actor command pipe
     zpoller_t *poller;          //  Socket poller
@@ -34,7 +40,7 @@ struct _zpnode_t {
     zyre_t* zyre;
     bool started;
 
-    zhashx_t* connections;      // server name -> zperf_client
+    zhashx_t* connections;      // server name -> connection_t
     zhashx_t* wanted_connections; // server names we wait to discover
 
     zactor_t* server;           // we may also run a server.
@@ -45,12 +51,13 @@ struct _zpnode_t {
 
 
 static void
-s_connection_destroy(zperf_client_t** self_p)
+s_connection_destroy(connection_t** self_p)
 {
     assert (self_p);
     if (! *self_p) { return;}
-    zperf_client_t* self = *self_p;
-    zperf_client_destroy(&self);
+    connection_t* self = *self_p;
+    zperf_client_destroy(&self->client);
+    free(self->perf_ident);
     *self_p = 0;
 }
 
@@ -167,16 +174,23 @@ zpnode_bind_and_endpoint(zpnode_t *self)
 // each time a new zyre peer is discovered.
 
 static int
-zpnode_connect_endpoint(zpnode_t* self, zperf_client_t* client,
+zpnode_connect_endpoint(zpnode_t* self, connection_t* conn,
                         const char* endpoint)
 {
-    int rc = zperf_client_say_hello(client, self->name, endpoint);
+    int rc = zperf_client_say_hello(conn->client, self->name, endpoint);
     if (self->verbose) {
         zsys_debug("%s: connect client to %s (%s)",
                    self->name, endpoint,
                    rc == 0 ? "success" : "failure");
     }
-    return rc;
+    int rc = zperf_client_create_perf(conn->client, ZMQ_REP);
+    assert (rc == 0);
+    conn->perf_ident = strdup(zperf_client_ident(c1));
+    if (self->verbose) {
+        zsys_debug("%s: client perf %s", 
+                   self->name, conn->perf_ident);
+    }
+    return 0;
 }
 
 // After learning about a new server we check wanted servers and if
@@ -190,8 +204,8 @@ zpnode_maybe_connect(zpnode_t* self, const char* nn, const char* ep)
         return false;
     }
 
-    zperf_client_t* client = (zperf_client_t*)zhashx_lookup(self->connections, nn);
-    if (!client) {
+    connection_t* conn = (connection_t*)zhashx_lookup(self->connections, nn);
+    if (!conn) {
         zsys_warning("%s: no existing client for wanted server %s",
                      self->name, nn);
         return false;
@@ -201,7 +215,7 @@ zpnode_maybe_connect(zpnode_t* self, const char* nn, const char* ep)
         zsys_debug("%s: server %s came online at %s",
                    self->name, nn, ep);
     }
-    zpnode_connect_endpoint(self, client, ep);
+    zpnode_connect_endpoint(self, conn, ep);
     zhashx_delete(self->wanted_connections, nn);
     free(sn);
     return true;
@@ -251,20 +265,22 @@ zpnode_connect(zpnode_t* self, const char* servername)
 {
     assert (self);
 
-    zperf_client_t* client = (zperf_client_t*)zhashx_lookup(self->connections,
-                                                            servername);
-    if (client) {
+    connection_t* conn = (connection_t*) zhashx_lookup(self->connections,
+                                                       servername);
+    if (conn) {
         zsys_warning("%s: already connected to %s", self->name, servername);
         return 0;
     }
 
-    client = zperf_client_new();
+    conn = (connection_t*) zmalloc (sizeof(connection_t));
+    assert (conn);
+    zhashx_insert(self->connections, servername, conn);
+    conn->client = zperf_client_new();
     if (self->verbose) {
-        zstr_send (client, "VERBOSE");
+        zstr_send (conn->client, "VERBOSE");
         zsys_debug("%s: make client for %s", self->name, servername);
     }
-    zhashx_insert(self->connections, servername, client);
-    zpoller_add(self->poller, zperf_client_msgpipe(client));
+    zpoller_add(self->poller, zperf_client_msgpipe(conn->client));
 
     // First check if own server matches because zyre doesn't discover self.
     if (self->server_nickname && streq(self->server_nickname, servername)) {
@@ -273,7 +289,7 @@ zpnode_connect(zpnode_t* self, const char* servername)
                        self->name, self->server_nickname,
                        self->server_endpoint);
         }
-        return zpnode_connect_endpoint(self, client,
+        return zpnode_connect_endpoint(self, conn->client,
                                        self->server_endpoint);
     }
 
@@ -299,7 +315,7 @@ zpnode_connect(zpnode_t* self, const char* servername)
                     zsys_debug("%s: server %s already online at %s",
                                self->name, nn, ep);
                 }
-                int rc = zpnode_connect_endpoint(self, client, ep);
+                int rc = zpnode_connect_endpoint(self, conn->client, ep);
                 if (rc != 0) { break; }
             }
         }
@@ -321,34 +337,31 @@ zpnode_connect(zpnode_t* self, const char* servername)
 }
 
 static int
-zpnode_latency(zpnode_t* self, const char* sn1, const char* sn2,
+zpnode_measure(zpnode_t* self,
+               const char* sn1, const char* role1, 
+               const char* sn2, const char* role2,
                int nmsgs, size_t msgsize)
 {
-    zperf_client_t* c1 = (zperf_client_t*)zhashx_lookup(self->connections, sn1);
-    zperf_client_t* c2 = (zperf_client_t*)zhashx_lookup(self->connections, sn2);
+    connection_t* c1 = (connection_t*)zhashx_lookup(self->connections, sn1);
+    connection_t* c2 = (connectoin_t*)zhashx_lookup(self->connections, sn2);
     assert (c1 && c2);
 
     int rc = 0;
 
-    rc = zperf_client_create_perf(c1, ZMQ_REP);
-    assert(rc == 0);
-    const char* ident1 = zperf_client_ident(c1);
-    rc = zperf_client_create_perf(c2, ZMQ_REQ);
-    assert(rc == 0);
-    const char* ident2 = zperf_client_ident(c2);
-    
-    rc = zperf_client_request_borc(c1, ident1, "BIND", "tcp://127.0.0.1:*");
+    // fixme: this should be moved to when we create perf
+    rc = zperf_client_request_borc(c1->client, c1->ident,
+                                   "BIND", "tcp://127.0.0.1:*");
     assert(rc == 0);
     const char* ep = zperf_client_endpoint(c1);
     rc = zperf_client_request_borc(c2, ident2, "CONNECT", ep);
     assert(rc == 0);
 
-    rc = zperf_client_launch_measure(c1, ident1, "ECHO", nmsgs, msgsize, 0);
+    rc = zperf_client_launch_measure(c1, ident1, role1, nmsgs, msgsize, 0);
     assert(rc == 0);
     rc = zperf_client_status(c1);
     assert(rc == 0);
 
-    rc = zperf_client_launch_measure(c2, ident2, "YODEL", nmsgs, msgsize, 0);
+    rc = zperf_client_launch_measure(c2, ident2, role2, nmsgs, msgsize, 0);
     assert(rc == 0);
     rc = zperf_client_status(c2);
     assert(rc == 0);
@@ -358,7 +371,7 @@ zpnode_latency(zpnode_t* self, const char* sn1, const char* sn2,
     rc = zperf_msg_recv(zpm, zperf_client_msgpipe(c1));
     assert(rc == 0);
     if (self->verbose) {
-        zsys_debug("%s: got return from ECHO", self->name);
+        zsys_debug("%s: got return from %s", self->name, role1);
         zperf_msg_print(zpm);
     }
     rc = zperf_msg_send(zpm, self->pipe);
@@ -367,7 +380,7 @@ zpnode_latency(zpnode_t* self, const char* sn1, const char* sn2,
     rc = zperf_msg_recv(zpm, zperf_client_msgpipe(c2));
     assert(rc == 0);
     if (self->verbose) {
-        zsys_debug("%s: got return from YODEL", self->name);
+        zsys_debug("%s: got return from %s", self->name, role2);
         zperf_msg_print(zpm);
     }
     rc = zperf_msg_send(zpm, self->pipe);
@@ -375,7 +388,6 @@ zpnode_latency(zpnode_t* self, const char* sn1, const char* sn2,
     
     return 0;
 }
-
 
 //  Here we handle incoming message from the node
 
@@ -407,14 +419,18 @@ zpnode_recv_api (zpnode_t *self)
         zpnode_connect(self, servername);
         free(servername);
     }
-    else if (streq (command, "LATENCY")) {
+    else if (streq (command, "MEASURE")) {
         char* sn1 = zmsg_popstr(request);
+        char* role1 = zmsg_popstr(request);
         char* sn2 = zmsg_popstr(request);
+        char* role2 = zmsg_popstr(request);
         int nmsgs = pop_int(request);
         size_t msgsize = pop_long(request);
-        zpnode_latency(self, sn1, sn2, nmsgs, msgsize);
+        zpnode_measure(self, sn1, role1, sn2, role2, nmsgs, msgsize);
         free(sn1);
+        free(role1);
         free(sn2);
+        free(role2);
     }
     else if (streq (command, "VERBOSE")) {
         self->verbose = true;
@@ -577,7 +593,9 @@ zpnode_test (bool verbose)
     int nmsgs = 1000;
     size_t msgsize = 1024;
 
-    zsock_send(node2, "sssi8", "LATENCY", "zperf-server1", "zperf-server2",
+    zsock_send(node2, "sssssi8", "MEASURE",
+               "zperf-server1", "ECHO",
+               "zperf-server2", "YODEL",
                nmsgs, msgsize);
     rc = zperf_msg_recv(msg, zactor_sock(node2));
     assert (rc == 0);
@@ -587,15 +605,18 @@ zpnode_test (bool verbose)
     assert (rc == 0);    
     zperf_msg_print(msg);
 
-    // zsock_send(node2, "sssi8", "THROUGHPUT", "zperf-server1", "zperf-server2",
-    //            nmsgs, msgsize);
-    // rc = zperf_msg_recv(msg1, node2);
-    // assert (rc == 0);
-    // zperf_msg_print(msg);
 
-    // rc = zperf_msg_recv(msg2, node2);
-    // assert (rc == 0);    
-    // zperf_msg_print(msg);
+    zsock_send(node2, "sssssi8", "MEASURE",
+               "zperf-server1", "SEND",
+               "zperf-server2", "RECV",
+               nmsgs, msgsize);
+    rc = zperf_msg_recv(msg, zactor_sock(node2));
+    assert (rc == 0);
+    zperf_msg_print(msg);
+
+    rc = zperf_msg_recv(msg, zactor_sock(node2));
+    assert (rc == 0);    
+    zperf_msg_print(msg);
 
     zstr_send(node2, "STOP");
     zstr_send(node1, "STOP");
