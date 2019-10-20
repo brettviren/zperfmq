@@ -86,9 +86,9 @@ int main (int argc, char *argv [])
     app.add_option("-c,--connect", connect,
                    "Address to connect");
 
-    std::string meas="echo";
+    std::string meas="ECHO";
     app.add_option("-m,--measurement", meas,
-                   "Measurement (def=echo)");
+                   "Measurement (def=ECHO)");
 
     std::string stype="REP";
     app.add_option("-S,--socket-type", stype,
