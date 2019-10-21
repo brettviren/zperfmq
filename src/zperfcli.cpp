@@ -98,6 +98,10 @@ int main (int argc, char *argv [])
     app.add_option("-o,--output", outfile,
                    "Output file name (def=zperf.json)");
 
+    int sleeps = 10;
+    app.add_option("--sleeps", sleeps,
+                   "Seconds to sleep after finishing (def=10)");
+
     CLI11_PARSE(app, argc, argv);
 
     zsys_init();
@@ -137,7 +141,7 @@ int main (int argc, char *argv [])
     res["cpu_us"] = zperf_cpu(zperf);
 
     zsys_debug("sleeping");
-    zclock_sleep(3000);
+    zclock_sleep(1000*sleeps);
 
     zperf_destroy(&zperf);
     res["end_us"] = now();
