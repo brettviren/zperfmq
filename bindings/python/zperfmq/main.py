@@ -332,8 +332,9 @@ def results_object(results, measurement):
     #nmsgs,msgsize,time_us,cpu_us,nbytes,noos = arrs
     mtu = get_mtu(results)
     speed = get_speed(results)
-    Results = namedtuple("Results","mtu speed nmsgs msgsize time_us cpu_us nbytes noos")
-    return Results(mtu, speed, *arrs);
+    plan = results['plan']
+    Results = namedtuple("Results","niothreads nconnects mtu speed nmsgs msgsize time_us cpu_us nbytes noos")
+    return Results(plan['niothreads'], plan['nconnects'], mtu, speed, *arrs);
 
 @cli.command('plot-lat')
 @click.option('-m', '--measure', type=click.Choice(['RECV','SEND','YODEL','ECHO']),
@@ -347,7 +348,7 @@ def plot_lat(measure, results, pltfile):
     results = json.loads(results.read())
     robj = results_object(results, measure)
 
-    title = "ZeroMQ %s TCP latency (mtu:%d speed:%d)" % (measure, robj.mtu, robj.speed)
+    title = "ZeroMQ %s TCP latency (mtu:%d #th/conn:%d/%d)" % (measure, robj.mtu, robj.niothreads, robj.nconnects)
 
     plt.loglog(robj.msgsize, robj.time_us/(2.0*robj.nmsgs),
                marker='o', color='tab:red')
@@ -370,13 +371,13 @@ def plot_lat(measure, results, pltfile):
     results = json.loads(results.read())
     robj = results_object(results, measure)
 
-    title = "ZeroMQ %s TCP throughput (mtu:%d speed:%d)" % (measure, robj.mtu, robj.speed)
+    title = "ZeroMQ %s TCP throughput (mtu:%d #th/conn:%d/%d)" % (measure, robj.mtu, robj.niothreads, robj.nconnects)
 
-    plt.loglog(robj.msgsize, 1e-3*robj.nbytes/robj.time_us,
+    plt.loglog(robj.msgsize, 8e-3*robj.nbytes/robj.time_us,
                marker='o', color='tab:blue')
     
     plt.xlabel('Message size [B]')
-    plt.ylabel('One-way latency [us]')
+    plt.ylabel('Throughput [Gbps]')
     plt.grid(True)
     plt.title(title)
     plt.savefig(pltfile)
@@ -393,7 +394,7 @@ def plot_cpu(measure, results, pltfile):
     results = json.loads(results.read())
     robj = results_object(results, measure)
 
-    title = "ZeroMQ %s CPU usage (mtu:%d speed:%d)" % (measure, robj.mtu, robj.speed)
+    title = "ZeroMQ %s CPU usage (mtu:%d #th/conn:%d/%d)" % (measure, robj.mtu, robj.niothreads, robj.nconnects)
 
     plt.semilogx(robj.msgsize, 100.0*robj.cpu_us/robj.time_us,
                  marker='o', color='tab:orange')
