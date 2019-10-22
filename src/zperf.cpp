@@ -307,6 +307,7 @@ zperf_test (bool verbose)
     s_test("lat", "YODEL", ZMQ_DEALER, "ECHO", ZMQ_REP, nmsgs, 1<<10, false);
 
     s_test("thr", "SEND", ZMQ_PUSH, "RECV", ZMQ_PULL, nmsgs, 1<<10, false);
+    s_test("thr", "STHR", ZMQ_PUSH, "RTHR", ZMQ_PULL, nmsgs, 1<<10, false);
 
     //  @end
     printf ("OK\n");

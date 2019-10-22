@@ -17,6 +17,7 @@
 
 //  External dependencies
 #include <czmq.h>
+#include <zyre.h>
 
 //  ZPERFMQ version macros for compile-time API detection
 #define ZPERFMQ_VERSION_MAJOR 0

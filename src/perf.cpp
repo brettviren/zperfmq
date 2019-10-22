@@ -366,6 +366,84 @@ perf_recv (perf_t *self, int nmsgs, size_t msgsize)
 }
 
 
+static int
+perf_sthr (perf_t* self, int nmsgs, size_t msgsize)
+{
+    s_reset (self, "STHR", nmsgs, msgsize);
+    void* s = zsock_resolve(self->sock);
+
+    int rc=0;
+    zmq_msg_t pmsg;       // count and payload
+
+    rc = zmq_msg_init_size(&pmsg, msgsize);
+    assert (rc == 0);
+
+    s_start(self);
+    for (int count = 0; count < nmsgs; ++count) {
+        zmq_msg_t cmsg;
+        zmq_msg_init_size(&cmsg, sizeof(int));
+        *(int*)zmq_msg_data(&cmsg) = count;
+
+        rc = zmq_msg_send(&cmsg, s, ZMQ_SNDMORE);
+        if (rc != sizeof(int)) {
+            zsys_error("perf: error in send count frame: %s", zmq_strerror(errno));
+        }
+        assert(rc == sizeof(int));
+        zmq_msg_close(&cmsg);
+
+        zmq_msg_t pmsg1;
+        rc = zmq_msg_init(&pmsg1);
+        assert (rc == 0);
+        rc = zmq_msg_copy(&pmsg1, &pmsg);
+
+        rc = zmq_msg_send(&pmsg1, s, 0);
+        assert(rc = msgsize);
+        rc = zmq_msg_close(&pmsg1);
+        assert(rc == 0);
+
+    }
+
+    self->totdata = nmsgs*msgsize;
+    return s_signal(self);
+}
+
+static int
+perf_rthr (perf_t* self, int nmsgs, size_t msgsize)
+{
+    s_reset (self, "RTHR", nmsgs, msgsize);
+    void* s = zsock_resolve(self->sock);
+
+    int rc=0;
+    zmq_msg_t msg;
+    rc = zmq_msg_init(&msg);
+    assert(rc == 0);
+    
+    for (int count = 0; count < nmsgs; ++count) {
+        if (count == 1) {           /* start after first message */
+            s_start(self);
+        }
+
+        // count
+        rc = zmq_msg_recv(&msg, s, 0);
+        if (rc != sizeof(int)) {
+            zsys_error("perf: error in recv count frame: %s", zmq_strerror(errno));
+        }
+        assert(rc == sizeof(int));
+        int got_count = *(int*)zmq_msg_data(&msg);
+        if (count != got_count) {
+            ++self->noos;
+        }
+
+        // payload
+        rc = zmq_recvmsg (s, &msg, 0);
+        assert (rc == msgsize);
+    }
+    zmq_msg_close(&msg);
+    self->totdata = nmsgs*msgsize;
+    return s_signal(self);
+}
+
+
 //  Here we handle incoming message from the node
 
 static void
@@ -422,6 +500,16 @@ perf_recv_api (perf_t *self)
         const int nmsgs = pop_int(request);
         const size_t msgsize = pop_long(request);
         perf_recv (self, nmsgs, msgsize);
+    }
+    else if (streq (command, "STHR")) {
+        const int nmsgs = pop_int(request);
+        const size_t msgsize = pop_long(request);
+        perf_sthr (self, nmsgs, msgsize);
+    }
+    else if (streq (command, "RTHR")) {
+        const int nmsgs = pop_int(request);
+        const size_t msgsize = pop_long(request);
+        perf_rthr (self, nmsgs, msgsize);
     }
 
     else if (streq (command, "VERBOSE")) {
@@ -613,6 +701,7 @@ perf_test (bool verbose)
     s_bookends("lat", "YODEL", ZMQ_DEALER, "ECHO", ZMQ_REP, nmsgs, 1<<10, false);
 
     s_bookends("thr", "SEND", ZMQ_PUSH, "RECV", ZMQ_PULL, nmsgs, 1<<10, false);
+    s_bookends("thr", "STHR", ZMQ_PUSH, "RTHR", ZMQ_PULL, nmsgs, 1<<10, false);
 
 
     //  @end

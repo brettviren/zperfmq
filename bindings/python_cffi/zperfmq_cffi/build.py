@@ -86,6 +86,7 @@ if not pkgconfig_installed ():
 kwargs = pkgconfig_kwargs ([
     "libzmq",
     "libczmq",
+    "libzyre",
     "libzperfmq"
 ])
 import cffi

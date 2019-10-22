@@ -127,6 +127,23 @@ ELSE (CZMQ_FOUND)
 ENDIF (CZMQ_FOUND)
 
 ########################################################################
+# ZYRE dependency
+########################################################################
+find_package(zyre REQUIRED)
+IF (ZYRE_FOUND)
+    include_directories(${ZYRE_INCLUDE_DIRS})
+    list(APPEND MORE_LIBRARIES ${ZYRE_LIBRARIES})
+  IF (PC_ZYRE_FOUND)
+      set(pkg_config_names_private "${pkg_config_names_private} libzyre")
+      list(APPEND OPTIONAL_LIBRARIES_STATIC ${PC_ZYRE_STATIC_LDFLAGS})
+  ELSE (PC_ZYRE_FOUND)
+      set(pkg_config_libs_private "${pkg_config_libs_private} -lzyre")
+  ENDIF (PC_ZYRE_FOUND)
+ELSE (ZYRE_FOUND)
+    message( FATAL_ERROR "zyre not found." )
+ENDIF (ZYRE_FOUND)
+
+########################################################################
 # version
 ########################################################################
 set(ZPERFMQ_VERSION_MAJOR 0)
@@ -341,6 +358,7 @@ target_link_libraries(
     zperfmq
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
+    ${ZYRE_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
 )
 endif()
@@ -350,6 +368,7 @@ target_link_libraries(
     zperfmq-static
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
+    ${ZYRE_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
     ${OPTIONAL_LIBRARIES_STATIC}
 )
@@ -367,6 +386,7 @@ target_link_libraries(
     zperfmq
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
+    ${ZYRE_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
 )
 endif()
@@ -376,6 +396,7 @@ target_link_libraries(
     zperfmq-static
     ${LIBZMQ_LIBRARIES}
     ${CZMQ_LIBRARIES}
+    ${ZYRE_LIBRARIES}
     ${OPTIONAL_LIBRARIES}
     ${OPTIONAL_LIBRARIES_STATIC}
 )

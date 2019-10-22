@@ -9,6 +9,8 @@ import subprocess
 import matplotlib.pyplot as plt
 from collections import defaultdict, namedtuple
 
+known_meaures = 'RTHR STHR RECV SEND ECHO YODEL'.split()
+
 
 def kmgt(number):
     unum = (len(str(number))-1)//3
@@ -62,12 +64,14 @@ def test():
 @click.option('-p', '--port', default="5678",
               help="The IP port")
 @click.option('-m', '--measurement', default="latency",
-              type=click.Choice(['latency','throughput']),
+              type=click.Choice(['clat','zlat','cthr','zthr']),
               help="Measurement (def=latency)")
 @click.option('--reverse/--no-reverse', 
               help="Reverse makes echo/send local connect and yodel/recv remote bind")
+@click.option('--min-nmsgs', default=2000,
+              help="Lower bound on the number of messages in one measure")
 @click.option('--max-nmsgs', default=int(2**20),
-              help="Limit the number of messages in one measure")
+              help="Upper bound on the number of messages in one measure")
 @click.option('-M', '--size-metric', default='log2',
               type=click.Choice(['linear','log2','log10']),
               help="Interpretation of message size in bytes (def='log2')")
@@ -77,7 +81,7 @@ def test():
               help="Output file")
 @click.argument("msgsizes", nargs=-1)
 def plan(niothreads, nconnects, address, port, measurement, reverse,
-         max_nmsgs, size_metric, total_data,
+         min_nmsgs, max_nmsgs, size_metric, total_data,
          output, msgsizes):
     '''
     Generate a plan for a sequence of measurements.
@@ -93,10 +97,13 @@ def plan(niothreads, nconnects, address, port, measurement, reverse,
     # normally, local yodel/recv, remote is echo/send
     # reverse reverses this
 
-    if measurement.startswith("thr"):
+    if measurement.startswith("zthr"):
+        peers = dict (local  = dict(measure='RTHR', socket = 'PULL'),
+                      remote = dict(measure='STHR', socket = 'PUSH'))
+    elif measurement.startswith("cthr"):
         peers = dict (local  = dict(measure='RECV', socket = 'PULL'),
                       remote = dict(measure='SEND', socket = 'PUSH'))
-    elif measurement.startswith("lat"):
+    elif measurement.startswith("clat"):
         peers = dict (local  = dict(measure='YODEL', socket = 'REQ'),
                       remote = dict(measure='ECHO',  socket = 'REP'))
     if reverse:
@@ -219,6 +226,7 @@ def run(output, planfile, remote):
     sysinfo = dict(local = get_sysinfo(),
                    remote = json.loads(subprocess.check_output(sshcmd, shell = True)))
 
+    min_nmsgs = plan['min_nmsgs']
     max_nmsgs = plan['max_nmsgs']
 
     results = list()
@@ -230,6 +238,9 @@ def run(output, planfile, remote):
         if nmsgs > max_nmsgs:
             nmsgs = max_nmsgs
             print("truncating number of messages to %d" % nmsgs)
+        if nmsgs < min_nmsgs:
+            nmsgs = min_nmsgs
+            print("uplifting number of messages to %d" % nmsgs)
         args = " --nmsgs {nmsgs} --msgsize {msgsize} -o -".format(nmsgs=nmsgs, msgsize=msgsize)
 
         lcmd = "zperfcli %s %s" % (lplan['args'], args)
@@ -337,7 +348,7 @@ def results_object(results, measurement):
     return Results(plan['niothreads'], plan['nconnects'], mtu, speed, *arrs);
 
 @cli.command('plot-lat')
-@click.option('-m', '--measure', type=click.Choice(['RECV','SEND','YODEL','ECHO']),
+@click.option('-m', '--measure', type=click.Choice(known_meaures),
               help='Set the measure for which the CPU is taken')
 @click.argument('results', type=click.File('rb'), default='-')
 @click.argument('pltfile', type=click.Path(), default='-')
@@ -360,7 +371,8 @@ def plot_lat(measure, results, pltfile):
     plt.savefig(pltfile)
 
 @cli.command('plot-thr')
-@click.option('-m', '--measure', type=click.Choice(['RECV','SEND','YODEL','ECHO']),
+@click.option('-m', '--measure',
+              type=click.Choice(known_meaures),
               help='Set the measure for which the CPU is taken')
 @click.argument('results', type=click.File('rb'), default='-')
 @click.argument('pltfile', type=click.Path(), default='-')
@@ -383,7 +395,8 @@ def plot_lat(measure, results, pltfile):
     plt.savefig(pltfile)
 
 @cli.command('plot-cpu')
-@click.option('-m', '--measure', type=click.Choice(['RECV','SEND','YODEL','ECHO']),
+@click.option('-m', '--measure',
+              type=click.Choice(known_meaures),
               help='Set the measure for which the CPU is taken')
 @click.argument('results', type=click.File('rb'), default='-')
 @click.argument('pltfile', type=click.Path(), default='-')

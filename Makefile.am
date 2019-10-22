@@ -11,10 +11,11 @@ AM_CXXFLAGS = \
 AM_CPPFLAGS = \
     ${libzmq_CFLAGS} \
     ${czmq_CFLAGS} \
+    ${zyre_CFLAGS} \
     -D__STDC_FORMAT_MACROS \
     -I$(srcdir)/include
 
-project_libs = ${libzmq_LIBS} ${czmq_LIBS}
+project_libs = ${libzmq_LIBS} ${czmq_LIBS} ${zyre_LIBS}
 
 SUBDIRS = doc
 SUBDIRS += include
@@ -37,6 +38,7 @@ if ENABLE_DIST_CMAKEFILES
 EXTRA_DIST += \
     Findlibzmq.cmake \
     Findczmq.cmake \
+    Findzyre.cmake \
     builds/cmake/Modules/ClangFormat.cmake \
     builds/cmake/clang-format-check.sh.in \
     builds/cmake/Config.cmake.in \
