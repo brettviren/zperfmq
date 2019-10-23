@@ -93,7 +93,7 @@ def plan(niothreads, nconnects, address, port, measurement, reverse,
     with brace expansion, eg: -M log2 {2..18}
     '''
 
-    # local allways connects, remote always binds
+    # local always connects, remote always binds
     # normally, local yodel/recv, remote is echo/send
     # reverse reverses this
 
@@ -106,6 +106,11 @@ def plan(niothreads, nconnects, address, port, measurement, reverse,
     elif measurement.startswith("clat"):
         peers = dict (local  = dict(measure='YODEL', socket = 'REQ'),
                       remote = dict(measure='ECHO',  socket = 'REP'))
+    # the "sender" should always wait.
+    peers['local']['zyre'] = '%s-%s' % (measurement, peers['local']['measure'].lower())
+    peers['remote']['zyre'] = '%s-%s' % (measurement, peers['remote']['measure'].lower())
+    peers['remote']['wait_for'] = peers['local']['zyre']
+    
     if reverse:
         peers = dict(local=peers['remote'], remote=peers['local'])
 
@@ -114,8 +119,14 @@ def plan(niothreads, nconnects, address, port, measurement, reverse,
     rargs = (common + ' --bind tcp://{address}:{port} ').format(**locals())
     del(common)
 
-    largs += ' --measurement {measure} --socket-type {socket}'.format(**peers['local'])
-    rargs += ' --measurement {measure} --socket-type {socket}'.format(**peers['remote'])
+    argpat = ' --name {zyre} --measurement {measure} --socket-type {socket}'
+    largs += argpat.format(**peers['local'])
+    rargs += argpat.format(**peers['remote'])
+    if 'wait_for' in peers['local']:
+        largs += ' --wait %s' % peers['local']['wait_for']
+    if 'wait_for' in peers['remote']:
+        rargs += ' --wait %s' % peers['remote']['wait_for']
+    
 
     peers['local']['args'] = largs
     peers['remote']['args'] = rargs
