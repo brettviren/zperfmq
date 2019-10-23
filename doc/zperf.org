@@ -1,0 +1,25 @@
+#+title: zperf
+
+The ~zperf~ Python program helps to automate running performance
+benchmarks.  It can generate /plans/, perform /runs/ and make /plots/.
+These taxons are:
+
+- plan :: a JSON file describing hot to run both ends
+- run :: executing a plan on test hosts
+- plot :: reading run results and plotting them
+
+* Tips
+
+A run produces a JSON file, which includes the contents of the plan
+JSON file.  The ~jq~ program helps do quick checks.  For example, to
+extract throughput, latency and CPU%:
+
+#+begin_example
+$ cat result.json | jq '.results[].dst|{log2ms: .msgsize|log2, msgsize:.msgsize, gbps: (8e-3*.nbytes/.time_us), cpupc: (100.0*.cpu_us/.time_us), lat: (0.5*.time_us/.nmsgs)}'
+#+end_example
+
+Keep in mind that, despite all result quantities existing in all
+results, no single test simultaneously produces meaningful
+measurements for both throughput and latency and because of output
+buffering, only the "dst" endpoint (as used in the above example)
+should be considered meaningfully (especially for throughput).

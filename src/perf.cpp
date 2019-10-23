@@ -375,6 +375,7 @@ perf_sthr (perf_t* self, int nmsgs, size_t msgsize)
     int rc=0;
     zmq_msg_t pmsg;       // count and payload
 
+
     rc = zmq_msg_init_size(&pmsg, msgsize);
     assert (rc == 0);
 
@@ -389,7 +390,6 @@ perf_sthr (perf_t* self, int nmsgs, size_t msgsize)
             zsys_error("perf: error in send count frame: %s", zmq_strerror(errno));
         }
         assert(rc == sizeof(int));
-        zmq_msg_close(&cmsg);
 
         zmq_msg_t pmsg1;
         rc = zmq_msg_init(&pmsg1);
@@ -398,14 +398,15 @@ perf_sthr (perf_t* self, int nmsgs, size_t msgsize)
 
         rc = zmq_msg_send(&pmsg1, s, 0);
         assert(rc = msgsize);
-        rc = zmq_msg_close(&pmsg1);
-        assert(rc == 0);
-
     }
+    rc = zmq_msg_close(&pmsg);
+    assert(rc == 0);
+
 
     self->totdata = nmsgs*msgsize;
     return s_signal(self);
 }
+
 
 static int
 perf_rthr (perf_t* self, int nmsgs, size_t msgsize)

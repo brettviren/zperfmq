@@ -60,14 +60,14 @@ def test():
 @click.option('-j', '--nconnects', default=1,
               help="Number of simultaneous socket connections (def=1)")
 @click.option('-a', '--address', default="127.0.0.1",
-              help="The remote IP address")
+              help="The IP address to bind and connect")
 @click.option('-p', '--port', default="5678",
               help="The IP port")
 @click.option('-m', '--measurement', default="latency",
               type=click.Choice(['clat','zlat','cthr','zthr']),
               help="Measurement (def=latency)")
 @click.option('--reverse/--no-reverse', 
-              help="Reverse makes echo/send local connect and yodel/recv remote bind")
+              help="Reverse makes src bind and dst connect")
 @click.option('--min-nmsgs', default=2000,
               help="Lower bound on the number of messages in one measure")
 @click.option('--max-nmsgs', default=int(2**20),
@@ -93,46 +93,48 @@ def plan(niothreads, nconnects, address, port, measurement, reverse,
     with brace expansion, eg: -M log2 {2..18}
     '''
 
-    # local always connects, remote always binds
-    # normally, local yodel/recv, remote is echo/send
-    # reverse reverses this
+    # normally src (echo,sthr,send) binds and dst (yodel,rthr,recv) connects
+    # reverse has src connect and dst bind.
 
-    if measurement.startswith("zthr"):
-        peers = dict (local  = dict(measure='RTHR', socket = 'PULL'),
-                      remote = dict(measure='STHR', socket = 'PUSH'))
-    elif measurement.startswith("cthr"):
-        peers = dict (local  = dict(measure='RECV', socket = 'PULL'),
-                      remote = dict(measure='SEND', socket = 'PUSH'))
-    elif measurement.startswith("clat"):
-        peers = dict (local  = dict(measure='YODEL', socket = 'REQ'),
-                      remote = dict(measure='ECHO',  socket = 'REP'))
+    if measurement.startswith("zthr"): # libzmq throughput
+        peers = dict (dst = dict(measure='RTHR', socket = 'PULL'),
+                      src = dict(measure='STHR', socket = 'PUSH'))
+    elif measurement.startswith("cthr"): # czmq throughput
+        peers = dict (dst = dict(measure='RECV', socket = 'PULL'),
+                      src = dict(measure='SEND', socket = 'PUSH'))
+    elif measurement.startswith("clat"): # czmq latency
+        peers = dict (dst = dict(measure='YODEL', socket = 'REQ'),
+                      src = dict(measure='ECHO',  socket = 'REP'))
     # the "sender" should always wait.
-    peers['local']['zyre'] = '%s-%s' % (measurement, peers['local']['measure'].lower())
-    peers['remote']['zyre'] = '%s-%s' % (measurement, peers['remote']['measure'].lower())
-    peers['remote']['wait_for'] = peers['local']['zyre']
-    
+    peers['src']['zyre'] = '%s-%s' % (measurement, peers['src']['measure'].lower())
+    peers['dst']['zyre'] = '%s-%s' % (measurement, peers['dst']['measure'].lower())
+    peers['src']['wait_for'] = peers['dst']['zyre']
+
+    peers['src']['borc'] = 'bind'
+    peers['dst']['borc'] = 'connect'
     if reverse:
-        peers = dict(local=peers['remote'], remote=peers['local'])
+        peers['src']['borc'] = 'connect'
+        peers['dst']['borc'] = 'bind'
 
-    common = '--niothreads {niothreads} --nconnects {nconnects}'
-    largs = (common + ' --connect tcp://{address}:{port}').format(**locals())
-    rargs = (common + ' --bind tcp://{address}:{port} ').format(**locals())
-    del(common)
+    argpat = \
+        '--niothreads {niothreads} --nconnects {nconnects} ' + \
+        '--{borc} tcp://{address}:{port} --name {zyre} --measurement {measure} ' + \
+        '--socket-type {socket}'
 
-    argpat = ' --name {zyre} --measurement {measure} --socket-type {socket}'
-    largs += argpat.format(**peers['local'])
-    rargs += argpat.format(**peers['remote'])
-    if 'wait_for' in peers['local']:
-        largs += ' --wait %s' % peers['local']['wait_for']
-    if 'wait_for' in peers['remote']:
-        rargs += ' --wait %s' % peers['remote']['wait_for']
+    src_args = argpat.format(**peers['src'], **locals())
+    dst_args = argpat.format(**peers['dst'], **locals())
+    if 'wait_for' in peers['src']:
+        src_args += ' --wait %s' % peers['src']['wait_for']
+    if 'wait_for' in peers['dst']:
+        dst_args += ' --wait %s' % peers['dst']['wait_for']
     
 
-    peers['local']['args'] = largs
-    peers['remote']['args'] = rargs
+    peers['src']['args'] = src_args
+    peers['dst']['args'] = dst_args
 
-    del(largs)
-    del(rargs)
+    del(src_args)
+    del(dst_args)
+    del(argpat)
 
     msgsizes = map_msgsize(msgsizes, size_metric)
 
@@ -189,20 +191,20 @@ def get_sysinfo():
 
 
 @cli.command('sysinfo')
-@click.option('-r', '--remote', default="",
-              help="Remote SSH URL")
+@click.option('--ssh', default="",
+              help='SSH connection string, default uses the "address" in the plan')
 @click.option('-o', '--output', type=click.File('wb'), default='-',
               help="Output file")
-def sysinfo(remote, output):
+def sysinfo(ssh, output):
     '''
     Produce JSON output describing system
     '''
-    if not remote:
+    if not ssh:
         res = get_sysinfo()
         output.write(json.dumps(res, indent=4).encode())
         return
     
-    sshcmd = '''ssh %s bash --login -c "'zperf sysinfo'"''' % remote
+    sshcmd = '''ssh %s bash --login -c "'zperf sysinfo'"''' % ssh
     res = subprocess.check_output(sshcmd, shell = True)
     output.write(res);
     return
@@ -215,30 +217,39 @@ def parse_run_return(text):
     return json.loads("\n".join(lines))
 
 
+def remote_popen(ssh, cmd):
+    sshcmd = '''ssh %s bash --login -c "'%s'"''' %(ssh, cmd)
+    print(sshcmd)
+    return subprocess.Popen(sshcmd, shell = True, stdout = subprocess.PIPE)
+
+def remote_sysinfo(ssh):
+    sshpat = '''ssh %s bash --login -c "'zperf sysinfo'"'''
+    sshcmd = sshpat % ssh
+    return json.loads(subprocess.check_output(sshcmd, shell = True))
+
 @cli.command('run')
+@click.option('-s', '--src-ssh', type=str, default="127.0.0.1",
+              help='SSH connection string for src')
+@click.option('-d', '--dst-ssh', type=str, default="127.0.0.1",
+              help='SSH connection string for dst')
 @click.option('-o', '--output', type=click.File('wb'), default='-',
               help="Output file")
 @click.argument('planfile', type=click.File('rb'))
-@click.argument('remote', type=str, default="")
-def run(output, planfile, remote):
+def run(src_ssh, dst_ssh, output, planfile):
     '''
     Execute a measurement plan.
     '''
 
     plan = json.loads(planfile.read())
-    if not remote:
-        remote = plan['address'] 
-        print("Warning, using address <%s> for remote" % (remote,))
 
-    lplan = plan['peers']['local']
-    rplan = plan['peers']['remote']
-
-    sshcmd = '''ssh %s bash --login -c "'zperf sysinfo'"''' % remote
-    sysinfo = dict(local = get_sysinfo(),
-                   remote = json.loads(subprocess.check_output(sshcmd, shell = True)))
+    sysinfo = dict(src = remote_sysinfo(src_ssh),
+                   dst = remote_sysinfo(dst_ssh))
 
     min_nmsgs = plan['min_nmsgs']
     max_nmsgs = plan['max_nmsgs']
+
+    src_plan = plan['peers']['src']
+    dst_plan = plan['peers']['dst']
 
     results = list()
     for msgsize in plan['msgsizes']:
@@ -254,26 +265,24 @@ def run(output, planfile, remote):
             print("uplifting number of messages to %d" % nmsgs)
         args = " --nmsgs {nmsgs} --msgsize {msgsize} -o -".format(nmsgs=nmsgs, msgsize=msgsize)
 
-        lcmd = "zperfcli %s %s" % (lplan['args'], args)
-        rcmd = "zperfcli %s %s" % (rplan['args'], args)
-        rcmd = '''ssh %s bash --login -c "'%s'"''' % (remote, rcmd)
-        print (lcmd)
-        lproc = subprocess.Popen(lcmd, shell = True, stdout = subprocess.PIPE)
-        print (rcmd)
-        rproc = subprocess.Popen(rcmd, shell = True, stdout = subprocess.PIPE)
-        lproc.wait()
-        rproc.wait()
+        src_cmd = "zperfcli %s %s" % (src_plan['args'], args)
+        dst_cmd = "zperfcli %s %s" % (dst_plan['args'], args)
 
-        ldat = parse_run_return(lproc.stdout.read())
-        rdat = parse_run_return(rproc.stdout.read())
+        src_proc = remote_popen(src_ssh, src_cmd)
+        dst_proc = remote_popen(dst_ssh, dst_cmd)
+        src_proc.wait()
+        dst_proc.wait()
 
-        ldat['nmsgs'] = nmsgs
-        rdat['nmsgs'] = nmsgs
+        src_dat = parse_run_return(src_proc.stdout.read())
+        dst_dat = parse_run_return(dst_proc.stdout.read())
 
-        ldat['msgsize'] = msgsize
-        rdat['msgsize'] = msgsize
+        src_dat['nmsgs'] = nmsgs
+        dst_dat['nmsgs'] = nmsgs
 
-        results.append(dict(local = ldat, remote=rdat))
+        src_dat['msgsize'] = msgsize
+        dst_dat['msgsize'] = msgsize
+
+        results.append(dict(src = src_dat, dst = dst_dat))
     final = dict(sysinfo=sysinfo, results=results, plan = plan)
     output.write(( json.dumps(final, indent=4) + "\n").encode() )
 
@@ -320,8 +329,8 @@ def get_net_info(nics, subnet):
 def result_arrays(dat, measurement="RECV"):
     arrs = list()
     for res in dat['results']:
-        for lc in ['local','remote']:
-            r = res[lc]
+        for sd in ['src','dst']:
+            r = res[sd]
             if r['measurement'] != measurement:
                 continue
             arrs.append((r['nmsgs'], r['msgsize'],
@@ -332,25 +341,24 @@ def result_arrays(dat, measurement="RECV"):
 def get_mtu(results):
     plan = results['plan']
     si = results['sysinfo']
-    lni = get_net_info(si['local']['nics'], plan['address'])
-    rni = get_net_info(si['remote']['nics'], plan['address'])
-    mtus = [n['mtu'] for d,n in list(lni.items()) + list(rni.items())]
+    src_ni = get_net_info(si['src']['nics'], plan['address'])
+    dst_ni = get_net_info(si['dst']['nics'], plan['address'])
+    mtus = [n['mtu'] for d,n in list(src_ni.items()) + list(dst_ni.items())]
     assert (len(mtus) == 2)
     return min(map(int, mtus))
         
 def get_speed(results):
     plan = results['plan']
     si = results['sysinfo']
-    lni = get_net_info(si['local']['nics'], plan['address'])
-    rni = get_net_info(si['remote']['nics'], plan['address'])
-    speeds = [n['speed'] for d,n in list(lni.items()) + list(rni.items())]
+    src_ni = get_net_info(si['src']['nics'], plan['address'])
+    dst_ni = get_net_info(si['dst']['nics'], plan['address'])
+    speeds = [n['speed'] for d,n in list(src_ni.items()) + list(dst_ni.items())]
     assert (len(speeds) == 2)
     return min(map(int, speeds))
         
     
 def results_object(results, measurement):
     arrs = result_arrays(results, measurement)
-    print (arrs.shape)
     #nmsgs,msgsize,time_us,cpu_us,nbytes,noos = arrs
     mtu = get_mtu(results)
     speed = get_speed(results)
@@ -380,6 +388,7 @@ def plot_lat(measure, results, pltfile):
     plt.grid(True)
     plt.title(title)
     plt.savefig(pltfile)
+    print(pltfile)
 
 @cli.command('plot-thr')
 @click.option('-m', '--measure',
@@ -387,14 +396,15 @@ def plot_lat(measure, results, pltfile):
               help='Set the measure for which the CPU is taken')
 @click.argument('results', type=click.File('rb'), default='-')
 @click.argument('pltfile', type=click.Path(), default='-')
-def plot_lat(measure, results, pltfile):
+def plot_thr(measure, results, pltfile):
     '''
     Generate throughput result plot
     '''
     results = json.loads(results.read())
     robj = results_object(results, measure)
 
-    title = "ZeroMQ %s TCP throughput (mtu:%d #th/conn:%d/%d)" % (measure, robj.mtu, robj.niothreads, robj.nconnects)
+    title = "ZeroMQ %s TCP throughput (mtu:%d #th/conn:%d/%d)" % \
+        (measure, robj.mtu, robj.niothreads, robj.nconnects)
 
     plt.loglog(robj.msgsize, 8e-3*robj.nbytes/robj.time_us,
                marker='o', color='tab:blue')
@@ -404,6 +414,7 @@ def plot_lat(measure, results, pltfile):
     plt.grid(True)
     plt.title(title)
     plt.savefig(pltfile)
+    print(pltfile)
 
 @cli.command('plot-cpu')
 @click.option('-m', '--measure',
@@ -418,7 +429,8 @@ def plot_cpu(measure, results, pltfile):
     results = json.loads(results.read())
     robj = results_object(results, measure)
 
-    title = "ZeroMQ %s CPU usage (mtu:%d #th/conn:%d/%d)" % (measure, robj.mtu, robj.niothreads, robj.nconnects)
+    title = "ZeroMQ %s CPU usage (mtu:%d #th/conn:%d/%d)" % \
+        (measure, robj.mtu, robj.niothreads, robj.nconnects)
 
     plt.semilogx(robj.msgsize, 100.0*robj.cpu_us/robj.time_us,
                  marker='o', color='tab:orange')
@@ -429,7 +441,7 @@ def plot_cpu(measure, results, pltfile):
     plt.title(title)
     plt.tight_layout()  # otherwise the right y-label is slightly clippe
     plt.savefig(pltfile)
-
+    print(pltfile)
 
 def main():
     cli()
