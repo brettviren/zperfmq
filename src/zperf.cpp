@@ -301,6 +301,11 @@ zperf_test (bool verbose)
     // about 15-30s, 2-3 s for thr.
     int nmsgs = 10000;
     
+
+    s_test("lat", "RLAT", ZMQ_REQ, "SLAT", ZMQ_REP, nmsgs, 1<<10, false);
+
+    s_test("lat", "RLAT", ZMQ_REQ, "SLAT", ZMQ_REP, nmsgs, 1<<10, false);
+
     s_test("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_REP, nmsgs, 1<<10, false);
     s_test("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_REP, nmsgs, 1<<16, false);
     s_test("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_ROUTER, nmsgs, 1<<10, false);

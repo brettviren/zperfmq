@@ -9,7 +9,7 @@ import subprocess
 import matplotlib.pyplot as plt
 from collections import defaultdict, namedtuple
 
-known_meaures = 'RTHR STHR RECV SEND ECHO YODEL'.split()
+known_meaures = 'RLAT SLAT RTHR STHR RECV SEND ECHO YODEL'.split()
 
 
 def kmgt(number):
@@ -102,9 +102,14 @@ def plan(niothreads, nconnects, address, port, measurement, reverse,
     elif measurement.startswith("cthr"): # czmq throughput
         peers = dict (dst = dict(measure='RECV', socket = 'PULL'),
                       src = dict(measure='SEND', socket = 'PUSH'))
+    elif measurement.startswith("zlat"): # libzmq latency
+        peers = dict (dst = dict(measure='RLAT', socket = 'REQ'),
+                      src = dict(measure='SLAT', socket = 'REP'))
     elif measurement.startswith("clat"): # czmq latency
         peers = dict (dst = dict(measure='YODEL', socket = 'REQ'),
                       src = dict(measure='ECHO',  socket = 'REP'))
+    else:
+        raise RuntimeErrot("unknown measurement: %s" % measurement)
     # the "sender" should always wait.
     peers['src']['zyre'] = '%s-%s' % (measurement, peers['src']['measure'].lower())
     peers['dst']['zyre'] = '%s-%s' % (measurement, peers['dst']['measure'].lower())
@@ -240,11 +245,11 @@ def run(src_ssh, dst_ssh, output, planfile):
     Execute a measurement plan.
     '''
 
-    plan = json.loads(planfile.read())
-
     sysinfo = dict(src = remote_sysinfo(src_ssh),
                    dst = remote_sysinfo(dst_ssh))
 
+    plan = json.loads(planfile.read())
+    print (list(plan.keys()))
     min_nmsgs = plan['min_nmsgs']
     max_nmsgs = plan['max_nmsgs']
 
@@ -378,7 +383,13 @@ def plot_lat(measure, results, pltfile):
     results = json.loads(results.read())
     robj = results_object(results, measure)
 
-    title = "ZeroMQ %s TCP latency (mtu:%d #th/conn:%d/%d)" % (measure, robj.mtu, robj.niothreads, robj.nconnects)
+    name = dict(SLAT = 'libzmq echo',
+                RLAT = 'libzmq yodel',
+                ECHO = 'CZMQ echo',
+                YODEL= 'CZMQ yodel')[measure]
+
+    title = "%s TCP latency (mtu:%d #th/conn:%d/%d)" % \
+        (name, robj.mtu, robj.niothreads, robj.nconnects)
 
     plt.loglog(robj.msgsize, robj.time_us/(2.0*robj.nmsgs),
                marker='o', color='tab:red')
@@ -389,6 +400,63 @@ def plot_lat(measure, results, pltfile):
     plt.title(title)
     plt.savefig(pltfile)
     print(pltfile)
+
+@cli.command('plot-czlat')
+@click.argument('cresults', type=click.File('rb'), default='-')
+@click.argument('zresults', type=click.File('rb'), default='-')
+@click.argument('pltfile', type=click.Path(), default='-')
+def plot_czlat(cresults, zresults, pltfile):
+    '''
+    Generate latency result plot for note
+    '''
+    cresults = json.loads(cresults.read())
+    cobj = results_object(cresults, 'YODEL')
+    zresults = json.loads(zresults.read())
+    zobj = results_object(zresults, 'RLAT')
+
+    assert(cobj.mtu == zobj.mtu)
+
+    title = "TCP Latency (mtu:%d)" % \
+        (cobj.mtu, )
+
+    plt.loglog(cobj.msgsize, cobj.time_us/(2.0*cobj.nmsgs),
+               label='CZMQ', marker='.', color='tab:olive')
+    plt.loglog(zobj.msgsize, zobj.time_us/(2.0*zobj.nmsgs),
+               label='libzmq', marker='o', color='tab:red')
+    
+    plt.xlabel('Message size [B]')
+    plt.ylabel('One-way latency [us]')
+    plt.legend()
+    plt.grid(True)
+    plt.title(title)
+    plt.savefig(pltfile)
+    print(pltfile)
+
+@cli.command('plot-rate')
+@click.argument('results', type=click.File('rb'), default='-')
+@click.argument('pltfile', type=click.Path(), default='-')
+def plot_rate(results, pltfile):
+    '''
+    Generate message rate result plot for note
+    '''
+    measure = 'YODEL'
+    results = json.loads(results.read())
+    robj = results_object(results, measure)
+
+    title = "CZMQ echo rate (mtu:%d)" % \
+        (robj.mtu, )
+
+    plt.loglog(robj.msgsize, 1e6*robj.nmsgs/robj.time_us,
+               marker='o', color='tab:red')
+    
+    plt.xlabel('Message size [B]')
+    plt.ylabel('Synchronous message rate [Hz]')
+    plt.grid(True)
+    plt.title(title)
+    plt.savefig(pltfile)
+    print(pltfile)
+
+
 
 @cli.command('plot-thr')
 @click.option('-m', '--measure',
@@ -403,14 +471,196 @@ def plot_thr(measure, results, pltfile):
     results = json.loads(results.read())
     robj = results_object(results, measure)
 
-    title = "ZeroMQ %s TCP throughput (mtu:%d #th/conn:%d/%d)" % \
-        (measure, robj.mtu, robj.niothreads, robj.nconnects)
+    name = dict(RECV = 'libzmq recv',
+                RTHR = 'CZMQ recv',
+                SEND = 'libzmq send',
+                STHR = 'CZMQ send')[measure]
+
+    title = "%s TCP throughput (mtu:%d #th/conn:%d/%d)" % \
+        (name, robj.mtu, robj.niothreads, robj.nconnects)
+
+
 
     plt.loglog(robj.msgsize, 8e-3*robj.nbytes/robj.time_us,
                marker='o', color='tab:blue')
     
     plt.xlabel('Message size [B]')
     plt.ylabel('Throughput [Gbps]')
+    plt.grid(True)
+    plt.title(title)
+    plt.savefig(pltfile)
+    print(pltfile)
+
+@cli.command('plot-thr-cz')
+@click.option('-s', '--side',
+              type=click.Choice(['send','recv']),
+              default='recv',
+              help='Set the measure for which the CPU is taken')
+@click.option('--scale',
+              type=click.Choice(['loglog','semilogx']),
+              default='loglog',
+              help='Set plot scale')
+@click.option('--msgsizes', nargs=2, type=float, default=(1,1<<30))
+@click.argument('cresults', type=click.File('rb'), default='-')
+@click.argument('zresults', type=click.File('rb'), default='-')
+@click.argument('pltfile', type=click.Path(), default='-')
+def plot_thr_cz(side, scale, msgsizes,
+                cresults, zresults, pltfile):
+    '''
+    Generate throughput result plot, CZMQ/libzmq comparison
+    '''
+    zresults = json.loads(zresults.read())
+    cresults = json.loads(cresults.read())
+    if side == 'recv':
+        zobj = results_object(zresults, 'RTHR')
+        cobj = results_object(cresults, 'RECV')
+    else:
+        zobj = results_object(zresults, 'STHR')
+        cobj = results_object(cresults, 'SEND')
+        
+
+    assert(cobj.mtu == zobj.mtu)
+    assert(cobj.niothreads == zobj.niothreads)
+    assert(cobj.nconnects == zobj.nconnects)
+
+
+    stmt = '1 I/O thread'
+    if cobj.niothreads > 1:
+        stmt = '%d I/O threads' % cobj.niothreads
+
+    title = "TCP throughput (%s, mtu:%d)" % \
+        (stmt, cobj.mtu)
+
+    pmeth = getattr(plt, scale)
+
+    pts = zobj.msgsize>0
+    if msgsizes:
+        pts1 = zobj.msgsize>=msgsizes[0]
+        pts2 = zobj.msgsize<=msgsizes[1]
+        pts = pts1 * pts2
+
+    pmeth(zobj.msgsize[pts], 8e-3*zobj.nbytes[pts]/zobj.time_us[pts],
+          label='libzmq', marker='o', color='tab:blue')
+    pmeth(cobj.msgsize[pts], 8e-3*cobj.nbytes[pts]/cobj.time_us[pts],
+          label='CZMQ', marker='.', color='tab:olive')
+    
+    plt.xlabel('Message size [B]')
+    plt.ylabel('Throughput [Gbps]')
+    plt.legend()
+    plt.grid(True)
+    plt.title(title)
+    plt.savefig(pltfile)
+    print(pltfile)
+
+@cli.command('plot-zthr-sm')
+@click.option('-s', '--side',
+              type=click.Choice(['send','recv']),
+              default='recv',
+              help='Set the measure for which the CPU is taken')
+@click.option('--scale',
+              type=click.Choice(['loglog','semilogx']),
+              default='loglog',
+              help='Set plot scale')
+@click.option('--msgsizes', nargs=2, type=float, default=(1,1<<30))
+@click.argument('sresults', type=click.File('rb'), default='-')
+@click.argument('mresults', type=click.File('rb'), default='-')
+@click.argument('pltfile', type=click.Path(), default='-')
+def plot_zthr_sm(side, scale, msgsizes,
+                 sresults, mresults, pltfile):
+    '''
+    Generate throughput result plot, single/multi thread comparison
+    '''
+    sresults = json.loads(sresults.read())
+    mresults = json.loads(mresults.read())
+    if side == 'recv':
+        sobj = results_object(sresults, 'RTHR')
+        mobj = results_object(mresults, 'RTHR')
+    else:
+        sobj = results_object(sresults, 'STHR')
+        mobj = results_object(mresults, 'STHR')
+        
+    assert(sobj.mtu == mobj.mtu)
+    assert(sobj.niothreads == 1)
+    assert(sobj.nconnects == 1)
+    assert(sobj.niothreads != mobj.niothreads)
+    assert(sobj.nconnects != mobj.nconnects)
+
+    title = "libzmq throughput (mtu:%d)" % \
+        (sobj.mtu,)
+
+    pmeth = getattr(plt, scale)
+
+    pts = sobj.msgsize>0
+    if msgsizes:
+        pts1 = sobj.msgsize>=msgsizes[0]
+        pts2 = sobj.msgsize<=msgsizes[1]
+        pts = pts1 * pts2
+
+    pmeth(sobj.msgsize[pts], 8e-3*sobj.nbytes[pts]/sobj.time_us[pts],
+          label='single', marker='o', color='tab:blue')
+    pmeth(mobj.msgsize[pts], 8e-3*mobj.nbytes[pts]/mobj.time_us[pts],
+          label='multi', marker='.', color='tab:purple')
+    
+    plt.xlabel('Message size [B]')
+    plt.ylabel('Throughput [Gbps]')
+    plt.legend()
+    plt.grid(True)
+    plt.title(title)
+    plt.savefig(pltfile)
+    print(pltfile)
+
+@cli.command('plot-zthr-mtu')
+@click.option('-s', '--side',
+              type=click.Choice(['send','recv']),
+              default='recv',
+              help='Set the measure for which the CPU is taken')
+@click.option('--scale',
+              type=click.Choice(['loglog','semilogx']),
+              default='loglog',
+              help='Set plot scale')
+@click.option('--msgsizes', nargs=2, type=float, default=(1,1<<30))
+@click.argument('nresults', type=click.File('rb'), default='-')
+@click.argument('jresults', type=click.File('rb'), default='-')
+@click.argument('pltfile', type=click.Path(), default='-')
+def plot_zthr_mtu(side, scale, msgsizes,
+                  nresults, jresults, pltfile):
+    '''
+    Generate throughput result plot, nominal/jumbo MTU comparison
+    '''
+    nresults = json.loads(nresults.read())
+    jresults = json.loads(jresults.read())
+    if side == 'recv':
+        nobj = results_object(nresults, 'RTHR')
+        jobj = results_object(jresults, 'RTHR')
+    else:
+        nobj = results_object(nresults, 'STHR')
+        jobj = results_object(jresults, 'STHR')
+        
+    assert(nobj.mtu == 1500)
+    assert(jobj.mtu == 9000)
+    assert(nobj.niothreads == jobj.niothreads)
+    assert(nobj.nconnects == jobj.nconnects)
+
+    # title = "libzmq TCP throughput (%s side) (#th/conn:%d/%d)" % \
+    #     (side, nobj.niothreads, nobj.nconnects)
+    title ="libzmq throughput (%d threads)" % nobj.niothreads
+
+    pmeth = getattr(plt, scale)
+
+    pts = nobj.msgsize>0
+    if msgsizes:
+        pts1 = nobj.msgsize>=msgsizes[0]
+        pts2 = nobj.msgsize<=msgsizes[1]
+        pts = pts1 * pts2
+
+    pmeth(nobj.msgsize[pts], 8e-3*nobj.nbytes[pts]/nobj.time_us[pts],
+          label='nominal', marker='o', color='tab:blue')
+    pmeth(jobj.msgsize[pts], 8e-3*jobj.nbytes[pts]/jobj.time_us[pts],
+          label='jumbo', marker='.', color='tab:purple')
+    
+    plt.xlabel('Message size [B]')
+    plt.ylabel('Throughput [Gbps]')
+    plt.legend()
     plt.grid(True)
     plt.title(title)
     plt.savefig(pltfile)
@@ -429,8 +679,15 @@ def plot_cpu(measure, results, pltfile):
     results = json.loads(results.read())
     robj = results_object(results, measure)
 
-    title = "ZeroMQ %s CPU usage (mtu:%d #th/conn:%d/%d)" % \
-        (measure, robj.mtu, robj.niothreads, robj.nconnects)
+    name = dict(RECV = 'libzmq recv',
+                RTHR = 'CZMQ recv',
+                SEND = 'libzmq send',
+                STHR = 'CZMQ send',
+                ECHO = 'CZMQ echo',
+                YODEL= 'CZMQ yodel')[measure]
+
+    title = "%s CPU usage (mtu:%d #th/conn:%d/%d)" % \
+        (name, robj.mtu, robj.niothreads, robj.nconnects)
 
     plt.semilogx(robj.msgsize, 100.0*robj.cpu_us/robj.time_us,
                  marker='o', color='tab:orange')
@@ -443,6 +700,48 @@ def plot_cpu(measure, results, pltfile):
     plt.savefig(pltfile)
     print(pltfile)
 
+@cli.command('plot-thr-cpu-cz')
+@click.option('--msgsizes', nargs=2, type=float, default=(1,1<<30))
+@click.argument('cresults', type=click.File('rb'), default='-')
+@click.argument('zresults', type=click.File('rb'), default='-')
+@click.argument('pltfile', type=click.Path(), default='-')
+def plot_cpu_cz(msgsizes, cresults, zresults, pltfile):
+    '''
+    Plot CPU usage.
+    '''
+    zresults = json.loads(zresults.read())
+    cresults = json.loads(cresults.read())
+    zobj = results_object(zresults, 'RTHR')
+    cobj = results_object(cresults, 'RECV')
+
+    assert(cobj.mtu == zobj.mtu)
+    assert(cobj.niothreads == zobj.niothreads)
+    assert(cobj.nconnects == zobj.nconnects)
+
+    # title = "Throughput CPU usage, recv side (mtu:%d #th/conn:%d/%d)" % \
+    #     (cobj.mtu, cobj.niothreads, cobj.nconnects)
+    title = 'CPU Usage'
+
+    pts = cobj.msgsize>0
+    if msgsizes:
+        pts1 = cobj.msgsize>=msgsizes[0]
+        pts2 = cobj.msgsize<=msgsizes[1]
+        pts = pts1 * pts2
+
+    plt.semilogx(cobj.msgsize[pts], 100.0*cobj.cpu_us[pts]/cobj.time_us[pts],
+                 label='CZMQ', marker='.', color='tab:orange')
+    plt.semilogx(zobj.msgsize[pts], 100.0*zobj.cpu_us[pts]/zobj.time_us[pts],
+                 label='libzmq', marker='o', color='tab:red')
+
+    plt.xlabel('Message size [B]')
+    plt.ylabel('CPU [%]');
+    plt.grid(True)
+    plt.legend()
+    plt.title(title)
+    plt.tight_layout()  # otherwise the right y-label is slightly clippe
+    plt.savefig(pltfile)
+    print(pltfile)
+    
 def main():
     cli()
     

@@ -60,7 +60,6 @@ do_one_plan () {
 }
 
 do_plans () {
-    force="$1"
 
     # by default the "src" binds
     args="--address ${src_addr} -p 5200"
@@ -70,19 +69,12 @@ do_plans () {
     for thr in zthr cthr
     do
         targs="$args --min-nmsgs=1000 --max-nmsgs=10000000 --total-data 10G"
-        if [ -n "$force" ] ; then
-            rm -f zperf-plan-${thr}-1-1.json
-            rm -f zperf-plan-${thr}-10-100.json
-        fi
         do_one_plan zperf-plan-${thr}-1-1.json -t1 -j1 $targs -m ${thr} {1..30} 
         do_one_plan zperf-plan-${thr}-10-100.json -t10 -j100 $targs -m ${thr} {1..30}
     done
-    for lat in clat
+    for lat in zlat clat
     do
         largs="$args --min-nmsgs=1000 --max-nmsgs=10000 --total-data 1G"
-        if [ -n "$force" ] ; then
-            rm -f zperf-plan-${lat}.json
-        fi
         do_one_plan zperf-plan-${lat}.json -t1 -j1 $largs -m ${lat} {1..20}
     done
 }
@@ -90,12 +82,13 @@ do_plans () {
 do_run_one () {
     mtu=$1 ; shift
     planfile=$1 ; shift
-    name=$(basename $planfile .json)
-    resfile="${name}-results-mtu${mtu}.json"
+    name=$(basename $planfile .json | sed -e 's/^.*plan-//')
+    resfile="zperf-results-${name}-mtu${mtu}.json"
     if [ -f $resfile ] ; then
         echo "skipping existing result file, to rerun do"
         echo "rm $resfile"
     else
+        echo zperf run -s $src_ssh -d $dst_ssh -o $resfile $planfile
         zperf run -s $src_ssh -d $dst_ssh -o $resfile $planfile
     fi
 }
@@ -149,10 +142,72 @@ do_plots () {
                 echo "no such file: $resfile"
                 continue;
             fi
+            name=$(basename $resfile .json)
             zperf plot-lat -m $send $resfile "${name}-plot-lat-${send}.${ext}"
             zperf plot-cpu -m $send $resfile "${name}-plot-cpu-${send}.${ext}"
             zperf plot-lat -m $recv $resfile "${name}-plot-lat-${recv}.${ext}"
             zperf plot-cpu -m $recv $resfile "${name}-plot-cpu-${recv}.${ext}"
+        done
+    done
+}
+
+do_plot_one () {
+    plot=$1 ; shift
+    name=$1 ; shift
+    plotfile="note-${plot}-${name}.pdf"
+    plotcmd="plot-${plot}"
+    if [ -f "$plotfile" ] ; then
+        echo "already have:  $plotfile"
+        return
+    fi
+    echo zperf $plotcmd $@ $plotfile
+    zperf $plotcmd $@ $plotfile
+}
+
+do_note_plots () {
+
+    do_plot_one czlat mtu9000 zperf-results-{c,z}lat-mtu9000.json
+
+    return
+
+    for side in recv send
+    do
+
+        for thcn in 1-1 10-100
+        do
+            do_plot_one zthr-mtu ${thcn}-${side} \
+                        --side $side \
+                        zperf-plan-zthr-${thcn}-results-mtu{1500,9000}.json                  
+        done
+
+        for mtu in 1500 9000
+        do
+            do_plot_one zthr-sm mtu${mtu}-${side} \
+                        --side $side \
+                        zperf-plan-zthr-{1-1,10-100}-results-mtu${mtu}.json                  
+        done
+    done
+    for thcn in 1-1 10-100
+    do
+        for mtu in 1500 9000
+        do
+            for range in lo hi
+            do
+                if [ "$range" == "lo" ] ; then
+                    msgsizes='1 2e3'
+                else
+                    msgsizes='2e3 2e9'
+                fi
+                
+                do_plot_one thr-cz ${thcn}-mtu${mtu}-thr-recv-${range} \
+                            --msgsizes $msgsizes --scale semilogx \
+                            zperf-plan-{c,z}thr-${thcn}-results-mtu${mtu}.json
+                      
+
+                do_plot_one thr-cpu-cz ${thcn}-mtu${mtu}-thr-recv-cpu-${range} \
+                            --msgsizes $msgsizes \
+                            zperf-plan-{c,z}thr-${thcn}-results-mtu${mtu}.json
+            done
         done
     done
 }

@@ -365,6 +365,113 @@ perf_recv (perf_t *self, int nmsgs, size_t msgsize)
     return s_signal(self);
 }
 
+// the "echo" in libzmq
+static int
+perf_slat (perf_t* self, int nmsgs, size_t msgsize)
+{
+    s_reset (self, "SLAT", nmsgs, msgsize);
+    void* s = zsock_resolve(self->sock);
+
+    int rc = 0;
+    zmq_msg_t msg;
+
+    rc = zmq_msg_init(&msg);
+    assert (rc == 0);
+
+    s_start(self);
+    for (int count = 0; count < nmsgs; ++count) {
+        if (count == 1) {           /* start after first message */
+            s_start(self);
+        }
+
+        // count
+        rc = zmq_msg_recv(&msg, s, 0);
+        if (rc != sizeof(int)) {
+            zsys_error("perf: error in slat count frame: %s", zmq_strerror(errno));
+        }
+        assert(rc == sizeof(int));
+        int got_count = *(int*)zmq_msg_data(&msg);
+        if (count != got_count) {
+            ++self->noos;
+        }
+
+        // payload
+        rc = zmq_recvmsg (s, &msg, 0);
+        assert (rc == msgsize);
+        self->totdata += msgsize;
+
+        zmq_msg_t cmsg;
+        zmq_msg_init_size(&cmsg, sizeof(int));
+        *(int*)zmq_msg_data(&cmsg) = got_count;
+
+        rc = zmq_msg_send(&cmsg, s, ZMQ_SNDMORE);
+        if (rc != sizeof(int)) {
+            zsys_error("perf: error in slat count frame: %s", zmq_strerror(errno));
+        }
+        assert(rc == sizeof(int));
+
+        rc = zmq_msg_send(&msg, s, 0);
+        assert(rc = msgsize);
+
+    }
+    return s_signal(self);
+}
+
+// the "yodel" in libzmq
+static int
+perf_rlat (perf_t* self, int nmsgs, size_t msgsize)
+{
+    s_reset (self, "RLAT", nmsgs, msgsize);
+    void* s = zsock_resolve(self->sock);
+
+    int rc = 0;
+    zmq_msg_t pmsg;
+
+    rc = zmq_msg_init_size(&pmsg, msgsize);
+    assert (rc == 0);
+
+    s_start(self);
+
+    for (int count = 0; count < nmsgs; ++count) {
+        zmq_msg_t cmsg;
+        zmq_msg_init_size(&cmsg, sizeof(int));
+        *(int*)zmq_msg_data(&cmsg) = count;
+
+        rc = zmq_msg_send(&cmsg, s, ZMQ_SNDMORE);
+        if (rc != sizeof(int)) {
+            zsys_error("perf: error in rlat count frame: %s", zmq_strerror(errno));
+        }
+        assert(rc == sizeof(int));
+
+        zmq_msg_t pmsg1;
+        rc = zmq_msg_init(&pmsg1);
+        assert (rc == 0);
+        rc = zmq_msg_copy(&pmsg1, &pmsg);
+
+        rc = zmq_msg_send(&pmsg1, s, 0);
+        assert(rc = msgsize);
+
+        self->totdata += msgsize;
+
+        // count
+        rc = zmq_msg_recv(&cmsg, s, 0);
+        if (rc != sizeof(int)) {
+            zsys_error("perf: error in rlat count frame: %s", zmq_strerror(errno));
+        }
+        assert(rc == sizeof(int));
+        int got_count = *(int*)zmq_msg_data(&pmsg);
+        if (count != got_count) {
+            ++self->noos;
+        }
+
+        // payload
+        rc = zmq_recvmsg (s, &pmsg1, 0);
+        assert (rc == msgsize);
+
+    }
+    return s_signal(self);
+}
+
 
 static int
 perf_sthr (perf_t* self, int nmsgs, size_t msgsize)
@@ -373,8 +480,7 @@ perf_sthr (perf_t* self, int nmsgs, size_t msgsize)
     void* s = zsock_resolve(self->sock);
 
     int rc=0;
-    zmq_msg_t pmsg;       // count and payload
-
+    zmq_msg_t pmsg;
 
     rc = zmq_msg_init_size(&pmsg, msgsize);
     assert (rc == 0);
@@ -501,6 +607,19 @@ perf_recv_api (perf_t *self)
         const int nmsgs = pop_int(request);
         const size_t msgsize = pop_long(request);
         perf_recv (self, nmsgs, msgsize);
+    }
+
+    // libzmq versions
+
+    else if (streq (command, "SLAT")) {
+        const int nmsgs = pop_int(request);
+        const size_t msgsize = pop_long(request);
+        perf_slat (self, nmsgs, msgsize);
+    }
+    else if (streq (command, "RLAT")) {
+        const int nmsgs = pop_int(request);
+        const size_t msgsize = pop_long(request);
+        perf_rlat (self, nmsgs, msgsize);
     }
     else if (streq (command, "STHR")) {
         const int nmsgs = pop_int(request);
@@ -701,9 +820,13 @@ perf_test (bool verbose)
     s_bookends("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_ROUTER, nmsgs, 1<<10, false);
     s_bookends("lat", "YODEL", ZMQ_DEALER, "ECHO", ZMQ_REP, nmsgs, 1<<10, false);
 
+    s_bookends("lat", "RLAT", ZMQ_REQ,  "SLAT", ZMQ_REP, nmsgs, 1<<10, false);
+    /// not yet supported
+    // s_bookends("lat", "RLAT", ZMQ_REQ,  "SLAT", ZMQ_ROUTER, nmsgs, 1<<10, false);
+    // s_bookends("lat", "RLAT", ZMQ_DEALER,  "SLAT", ZMQ_REP, nmsgs, 1<<10, false);
+
     s_bookends("thr", "SEND", ZMQ_PUSH, "RECV", ZMQ_PULL, nmsgs, 1<<10, false);
     s_bookends("thr", "STHR", ZMQ_PUSH, "RTHR", ZMQ_PULL, nmsgs, 1<<10, false);
-
 
     //  @end
 
