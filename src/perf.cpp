@@ -110,6 +110,27 @@ perf_destroy (perf_t **self_p)
 }
 
 
+// Set internal batch/buffer size.  NOTE: this typically should NOT be
+// called.  Changing the default may HARM latency/throughput.
+
+static int
+perf_set_batch_size(perf_t* self, int size)
+{
+    assert(self);
+
+    // czmq doesn't yet have the needed method, so operate on zmq socket
+    void* s = zsock_resolve(self->sock);
+    int rc=0;
+
+    rc = zmq_setsockopt(s, ZMQ_IN_BATCH_SIZE, &size, sizeof(size));
+    if (rc == 0) { return -1; }
+    rc = zmq_setsockopt(s, ZMQ_OUT_BATCH_SIZE, &size, sizeof(size));
+    if (rc == 0) { return -1; }
+    
+    return 0;
+}
+
+
 
 // Bind the measurement socket.
 
@@ -563,18 +584,24 @@ perf_recv_api (perf_t *self)
 
     char *command = zmsg_popstr (request);
 
+    int rc = 0;
+    // BATCH <bytes>
+    if (streq (command, "BATCH")) {
+        int size = pop_int (request);        
+        rc = perf_set_batch_size(self, size);
+    }
     // BIND <address> ->
     // BIND <fq-address> <port#, zero or err>
-    if (streq (command, "BIND")) {
+    else if (streq (command, "BIND")) {
         char *endpoint = zmsg_popstr (request);        
-        perf_bind (self, endpoint);
+        rc = perf_bind (self, endpoint);
         free (endpoint);        
     }
     // CONNECT <address> ->
     // CONNECT <address> <rc>
     else if (streq (command, "CONNECT")) {
         char *endpoint = zmsg_popstr (request);
-        perf_connect (self, endpoint);
+        rc = perf_connect (self, endpoint);
         free (endpoint);
     }
 
@@ -585,28 +612,28 @@ perf_recv_api (perf_t *self)
     else if (streq (command, "ECHO")) {
         const int nmsgs = pop_int(request);
         const size_t msgsize = pop_long(request);
-        perf_echo (self, nmsgs, msgsize);
+        rc = perf_echo (self, nmsgs, msgsize);
     }
     // YODEL <nmsgs> <msgsize> ->
     // YODEL <nmsgs> <total_size> <time_us> <cpu_us> <noos>
     else if (streq (command, "YODEL")) {
         const int nmsgs = pop_int(request);
         const size_t msgsize = pop_long(request);
-        perf_yodel (self, nmsgs, msgsize);
+        rc = perf_yodel (self, nmsgs, msgsize);
     }
     // SEND <nmsgs> <msgsize> ->
     // SEND <nmsgs> <total_size> <time_us> <cpu_us> <noos>
     else if (streq (command, "SEND")) {
         const int nmsgs = pop_int(request);
         const size_t msgsize = pop_long(request);
-        perf_send (self, nmsgs, msgsize);
+        rc = perf_send (self, nmsgs, msgsize);
     }
     // RECV <nmsgs> <msgsize> ->
     // RECV <nmsgs> <total_size> <time_us> <cpu_us> <noos>
     else if (streq (command, "RECV")) {
         const int nmsgs = pop_int(request);
         const size_t msgsize = pop_long(request);
-        perf_recv (self, nmsgs, msgsize);
+        rc = perf_recv (self, nmsgs, msgsize);
     }
 
     // libzmq versions
@@ -614,22 +641,22 @@ perf_recv_api (perf_t *self)
     else if (streq (command, "SLAT")) {
         const int nmsgs = pop_int(request);
         const size_t msgsize = pop_long(request);
-        perf_slat (self, nmsgs, msgsize);
+        rc = perf_slat (self, nmsgs, msgsize);
     }
     else if (streq (command, "RLAT")) {
         const int nmsgs = pop_int(request);
         const size_t msgsize = pop_long(request);
-        perf_rlat (self, nmsgs, msgsize);
+        rc = perf_rlat (self, nmsgs, msgsize);
     }
     else if (streq (command, "STHR")) {
         const int nmsgs = pop_int(request);
         const size_t msgsize = pop_long(request);
-        perf_sthr (self, nmsgs, msgsize);
+        rc = perf_sthr (self, nmsgs, msgsize);
     }
     else if (streq (command, "RTHR")) {
         const int nmsgs = pop_int(request);
         const size_t msgsize = pop_long(request);
-        perf_rthr (self, nmsgs, msgsize);
+        rc = perf_rthr (self, nmsgs, msgsize);
     }
 
     else if (streq (command, "VERBOSE")) {
@@ -643,6 +670,12 @@ perf_recv_api (perf_t *self)
         zsys_error ("invalid command '%s'", command);
         assert (false);
     }
+
+    if (rc != 0) {              // pretend to handle errors
+        zsys_error("perf: error from command %s: %s",
+                   command, zmq_strerror(errno));
+    }
+
     zstr_free (&command);
     zmsg_destroy (&request);
 }

@@ -160,6 +160,10 @@ int main (int argc, char *argv [])
     app.add_option("--verbose", verbose,
                    "Set verbosity level, def=0");
 
+    int batch = 0;
+    app.add_option("--batch", batch,
+                   "Set batch buffer (experimental only)");
+
     CLI11_PARSE(app, argc, argv);
 
     zsys_init();
@@ -196,6 +200,11 @@ int main (int argc, char *argv [])
     const int snum = socket_type(stype);
     res["beg_us"] = now();
     zperf_t* zperf = zperf_new(snum);
+
+    if (batch) {
+        
+    }
+
 
     if (connect == "") {
         res["attachment"] = "bind";
