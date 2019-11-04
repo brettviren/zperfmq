@@ -8,6 +8,16 @@
 
   <destructor/>
 
+  <method name = "set_batch">
+    Set the batch buffer (in and out) size in bytes.  Must call this
+    prior to bind or connect.  This setting is experimental and not
+    something app code normally should ever do.  Return 0 if okay.
+    <argument name = "size" type = "number" size = "4">
+      The buffer size in bytes.
+    </argument>
+    <return type = "integer"/>
+  </method>
+
   <method name = "bind">
     Bind the zperf measurement socket to an address.
     Return the qualified address or NULL on error.
@@ -98,14 +108,6 @@
     Return the elapsed time in microseconds used by the last
     measurement.  The measurement must be finalized.
     <return type="number" size="8" />
-  </method>
-
-  <method name = "set_batch">
-    Set the batch buffer (in and out) size in bytes.  This is
-    experimental and not something app code normally should touch.
-    <argument name = "size" type = "number" size = "4">
-      The buffer size in bytes.
-    </argument>
   </method>
 
 </class>

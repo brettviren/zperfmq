@@ -68,14 +68,31 @@ do_plans () {
 
     for thr in zthr cthr
     do
-        targs="$args --min-nmsgs=1000 --max-nmsgs=10000000 --total-data 10G"
+        targs="$args --min-nmsgs=10000 --max-nmsgs=100000000 --total-data 10G"
         do_one_plan zperf-plan-${thr}-1-1.json -t1 -j1 $targs -m ${thr} {1..30} 
         do_one_plan zperf-plan-${thr}-10-100.json -t10 -j100 $targs -m ${thr} {1..30}
+        if [ "$thr" = "cthr" ] ; then
+            continue
+        fi
+        for batch in 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536
+        do
+            do_one_plan zperf-plan-${thr}-10-100-batch${batch}.json --batch $batch -t10 -j100 $targs -m ${thr} {1..17}
+        done
     done
     for lat in zlat clat
     do
-        largs="$args --min-nmsgs=1000 --max-nmsgs=10000 --total-data 1G"
+        largs="$args --min-nmsgs=10000 --max-nmsgs=100000 --total-data 1G"
         do_one_plan zperf-plan-${lat}.json -t1 -j1 $largs -m ${lat} {1..20}
+
+        if [ "$lat" = "clat" ] ; then
+            continue
+        fi
+
+        for batch in 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536
+        do
+            do_one_plan zperf-plan-${lat}-batch${batch}.json --batch $batch -t1 -j1 $largs -m ${lat} {1..17}
+        done
+
     done
 }
 
@@ -123,10 +140,10 @@ do_plots () {
             fi
             name=$(basename $resfile .json)
             
-            zperf plot-thr -m $send $resfile "${name}-plot-thr-${send}.${ext}"
-            zperf plot-cpu -m $send $resfile "${name}-plot-cpu-${send}.${ext}"
-            zperf plot-thr -m $recv $resfile "${name}-plot-thr-${recv}.${ext}"
-            zperf plot-cpu -m $recv $resfile "${name}-plot-cpu-${recv}.${ext}"
+            zperf plot-thr -m $send -o "${name}-plot-thr-${send}.${ext}" $resfile 
+            zperf plot-cpu -m $send -o "${name}-plot-cpu-${send}.${ext}" $resfile 
+            zperf plot-thr -m $recv -o "${name}-plot-thr-${recv}.${ext}" $resfile
+            zperf plot-cpu -m $recv -o "${name}-plot-cpu-${recv}.${ext}" $resfile
         done
     done
 
@@ -143,10 +160,10 @@ do_plots () {
                 continue;
             fi
             name=$(basename $resfile .json)
-            zperf plot-lat -m $send $resfile "${name}-plot-lat-${send}.${ext}"
-            zperf plot-cpu -m $send $resfile "${name}-plot-cpu-${send}.${ext}"
-            zperf plot-lat -m $recv $resfile "${name}-plot-lat-${recv}.${ext}"
-            zperf plot-cpu -m $recv $resfile "${name}-plot-cpu-${recv}.${ext}"
+            zperf plot-lat -m $send -o "${name}-plot-lat-${send}.${ext}" $resfile
+            zperf plot-cpu -m $send -o "${name}-plot-cpu-${send}.${ext}" $resfile
+            zperf plot-lat -m $recv -o "${name}-plot-lat-${recv}.${ext}" $resfile
+            zperf plot-cpu -m $recv -o "${name}-plot-cpu-${recv}.${ext}" $resfile
         done
     done
 }
@@ -160,16 +177,32 @@ do_plot_one () {
         echo "already have:  $plotfile"
         return
     fi
-    echo zperf $plotcmd $@ $plotfile
-    zperf $plotcmd $@ $plotfile
+    echo zperf $plotcmd -o $plotfile $@ 
+    zperf $plotcmd -o $plotfile $@ 
 }
 
 do_note_plots () {
 
-    do_plot_one czlat mtu9000 zperf-results-{c,z}lat-mtu9000.json
+    # basic latency
+    zperf plot-cz-lat-cpu -o note-cz-lat-cpu-lo.pdf --msgsizes 1 2e4 --scale semilogx zperf-results-{c,z}lat-mtu9000.json
+    zperf plot-cz-lat-cpu -o note-cz-lat-cpu-hi.pdf --msgsizes 1e4 2e6 --scale semilogx zperf-results-{c,z}lat-mtu9000.json 
 
+    # basic throughput
+    zperf plot-cz-thr-cpu -o note-cz-thr-cpu-lo.pdf --msgsizes 1 2e3 --scale loglog zperf-results-{c,z}thr-10-100-mtu9000.json
+    zperf plot-cz-thr-cpu -o note-cz-thr-cpu-hi.pdf --msgsizes 1e3 1e9 --scale semilogx zperf-results-{c,z}thr-10-100-mtu9000.json 
+
+    # look at batch throughput
+    zperf plot-zthr-batch --scale semilogx --msgsizes 512 1e9 -o zthr-batch-hi.pdf zperf-results-zthr-10-100-batch{64,128,256,512,1024,2048,4096,8192,16384,32768,65536}-mtu9000.json    
+    zperf plot-zthr-batch --scale loglog --msgsizes 1 1024 -o zthr-batch-lo.pdf zperf-results-zthr-10-100-batch{64,128,256,512,1024,2048,4096,8192,16384,32768,65536}-mtu9000.json
+
+    # look at batch latency
+    zperf plot-zlat-batch  --scale semilogx -o zlat-batch-all.pdf zperf-results-zlat-batch{64,128,256,512,1024,2048,4096,8192,16384,32768,65536}-mtu9000.json
+
+    
     return
+}
 
+do_other_plots () {
     for side in recv send
     do
 

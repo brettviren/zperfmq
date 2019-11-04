@@ -52,6 +52,8 @@ lib.zperf_new.restype = zperf_p
 lib.zperf_new.argtypes = [c_int]
 lib.zperf_destroy.restype = None
 lib.zperf_destroy.argtypes = [POINTER(zperf_p)]
+lib.zperf_set_batch.restype = c_int
+lib.zperf_set_batch.argtypes = [zperf_p, c_int]
 lib.zperf_bind.restype = c_char_p
 lib.zperf_bind.argtypes = [zperf_p, c_char_p]
 lib.zperf_connect.restype = c_int
@@ -126,6 +128,14 @@ class Zperf(object):
     def __nonzero__(self):
         "Determine whether the object is valid by converting to boolean" # Python 2
         return self._as_parameter_.__nonzero__()
+
+    def set_batch(self, size):
+        """
+        Set the batch buffer (in and out) size in bytes.  Must call this
+prior to bind or connect.  This setting is experimental and not
+something app code normally should ever do.  Return 0 if okay.
+        """
+        return lib.zperf_set_batch(self._as_parameter_, size)
 
     def bind(self, address):
         """

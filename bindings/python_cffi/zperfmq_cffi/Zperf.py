@@ -24,6 +24,14 @@ class Zperf(object):
         # https://cffi.readthedocs.org/en/latest/using.html#ffi-interface
         self._p = utils.ffi.gc(p, libzperfmq_destructors.zperf_destroy_py)
 
+    def set_batch(self, size):
+        """
+        Set the batch buffer (in and out) size in bytes.  Must call this
+        prior to bind or connect.  This setting is experimental and not
+        something app code normally should ever do.  Return 0 if okay.
+        """
+        return utils.lib.zperf_set_batch(self._p, size)
+
     def bind(self, address):
         """
         Bind the zperf measurement socket to an address.

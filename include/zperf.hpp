@@ -28,6 +28,13 @@ ZPERFMQ_EXPORT void
     zperf_destroy (zperf_t **self_p);
 
 //  *** Draft method, for development use, may change without warning ***
+//  Set the batch buffer (in and out) size in bytes.  Must call this
+//  prior to bind or connect.  This setting is experimental and not
+//  something app code normally should ever do.  Return 0 if okay.
+ZPERFMQ_EXPORT int
+    zperf_set_batch (zperf_t *self, uint32_t size);
+
+//  *** Draft method, for development use, may change without warning ***
 //  Bind the zperf measurement socket to an address.
 //  Return the qualified address or NULL on error.
 ZPERFMQ_EXPORT const char *

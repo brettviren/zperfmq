@@ -202,7 +202,11 @@ int main (int argc, char *argv [])
     zperf_t* zperf = zperf_new(snum);
 
     if (batch) {
-        
+        if (verbose) {
+            zsys_warning("Setting BATCH buffer sizes to %d" , batch);
+        }
+        int rc = zperf_set_batch(zperf, batch);
+        assert (rc == 0);
     }
 
 

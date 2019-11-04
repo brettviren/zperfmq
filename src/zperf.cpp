@@ -67,6 +67,13 @@ zperf_destroy (zperf_t **self_p)
     }
 }
 
+int
+zperf_set_batch (zperf_t *self, uint32_t size)
+{
+    return zsock_send(self->perf, "si", "BATCH", size);
+}
+
+
 const char *
 zperf_bind (zperf_t *self, const char *address)
 {

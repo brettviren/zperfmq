@@ -120,12 +120,13 @@ perf_set_batch_size(perf_t* self, int size)
 
     // czmq doesn't yet have the needed method, so operate on zmq socket
     void* s = zsock_resolve(self->sock);
+    assert(s);
     int rc=0;
 
     rc = zmq_setsockopt(s, ZMQ_IN_BATCH_SIZE, &size, sizeof(size));
-    if (rc == 0) { return -1; }
+    if (rc != 0) { return -1; }
     rc = zmq_setsockopt(s, ZMQ_OUT_BATCH_SIZE, &size, sizeof(size));
-    if (rc == 0) { return -1; }
+    if (rc != 0) { return -1; }
     
     return 0;
 }
@@ -140,6 +141,9 @@ perf_bind (perf_t *self, const char* endpoint)
     assert (self);
 
     int rc=0, port = zsock_bind(self->sock, "%s", endpoint);
+    if (self->verbose) {
+        zsys_debug("perf: BIND %s %d", endpoint, port);
+    }
     if (port <= 0) {
         rc = zsock_send(self->pipe, "ssi", "BIND", endpoint, port);
         assert(rc == 0);
@@ -480,9 +484,13 @@ perf_rlat (perf_t* self, int nmsgs, size_t msgsize)
             zsys_error("perf: error in rlat count frame: %s", zmq_strerror(errno));
         }
         assert(rc == sizeof(int));
-        int got_count = *(int*)zmq_msg_data(&pmsg);
+        int got_count = *(int*)zmq_msg_data(&cmsg);
         if (count != got_count) {
             ++self->noos;
+            // if (self->verbose) {
+            //     zsys_debug("perf: %d oos, want: %d, got: %d", self->noos, count, got_count);
+            // }
+
         }
 
         // payload
@@ -595,6 +603,7 @@ perf_recv_api (perf_t *self)
     else if (streq (command, "BIND")) {
         char *endpoint = zmsg_popstr (request);        
         rc = perf_bind (self, endpoint);
+        if (rc > 0) { rc = 0; }
         free (endpoint);        
     }
     // CONNECT <address> ->
@@ -672,8 +681,8 @@ perf_recv_api (perf_t *self)
     }
 
     if (rc != 0) {              // pretend to handle errors
-        zsys_error("perf: error from command %s: %s",
-                   command, zmq_strerror(errno));
+        zsys_error("perf: error (%d) from command %s: %s",
+                   rc, command, zmq_strerror(errno));
     }
 
     zstr_free (&command);
@@ -761,6 +770,7 @@ void s_report(const char* what, int nmsgs, size_t totdat, int64_t time_us, uint6
     double cpupc = (100.0 * cpu_us) / time_us;
     zsys_info("%s: %d msgs (%.3f Gbps) in %.3fs, %.3f kHz, %.3f us/msg, %.3f %%CPU, %d ooo",
               what, nmsgs, Gbps, time_s, kHz, lat_us, cpupc, noos);
+    assert(noos == 0);          // will fail with multiple I/O threads
 }
 
 static
@@ -803,19 +813,30 @@ static
 void s_bookends(const char* title,
                 const char* pitcher_name, int pitcher_socket, // connects
                 const char* catcher_name, int catcher_socket, // binds
-                int nmsgs, size_t msgsize, bool reverse)      // b<-->c
+                int nmsgs, size_t msgsize, bool reverse,      // b<-->c
+                bool verbose)
 {
-    zsys_info("perf test %s: %s[%d]<-->%s[%d] %d of %ld",
-              title,
-              pitcher_name, pitcher_socket,
-              catcher_name, catcher_socket,
-              nmsgs, msgsize);
+    if (verbose) {
+        zsys_info("perf test %s: %s[%d]<-->%s[%d] %d of %ld",
+                  title,
+                  pitcher_name, pitcher_socket,
+                  catcher_name, catcher_socket,
+                  nmsgs, msgsize);
+    }
 
     zactor_t *p = zactor_new (perf_actor, (void*)(size_t)pitcher_socket);
     assert (p);
     zactor_t *c = zactor_new (perf_actor, (void*)(size_t)catcher_socket);
     assert (c);
     
+    if (verbose) {
+        int rc = 0;
+        rc = zsock_send(p, "s", "VERBOSE");
+        assert (rc == 0);
+        rc = zsock_send(c, "s", "VERBOSE");
+        assert (rc == 0);
+    }
+
     if (reverse) {
         zactor_t* temp = p;
         p = c;
@@ -848,18 +869,18 @@ perf_test (bool verbose)
     // about 15-30s, 2-3 s for thr.
     int nmsgs = 10000;
 
-    s_bookends("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_REP, nmsgs, 1<<10, false);
-    s_bookends("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_REP, nmsgs, 1<<16, false);
-    s_bookends("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_ROUTER, nmsgs, 1<<10, false);
-    s_bookends("lat", "YODEL", ZMQ_DEALER, "ECHO", ZMQ_REP, nmsgs, 1<<10, false);
+    s_bookends("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_REP, nmsgs, 1<<10, false, verbose);
+    s_bookends("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_REP, nmsgs, 1<<16, false, verbose);
+    s_bookends("lat", "YODEL", ZMQ_REQ, "ECHO", ZMQ_ROUTER, nmsgs, 1<<10, false, verbose);
+    s_bookends("lat", "YODEL", ZMQ_DEALER, "ECHO", ZMQ_REP, nmsgs, 1<<10, false, verbose);
 
-    s_bookends("lat", "RLAT", ZMQ_REQ,  "SLAT", ZMQ_REP, nmsgs, 1<<10, false);
+    s_bookends("lat", "RLAT", ZMQ_REQ,  "SLAT", ZMQ_REP, nmsgs, 1<<10, false, verbose);
     /// not yet supported
-    // s_bookends("lat", "RLAT", ZMQ_REQ,  "SLAT", ZMQ_ROUTER, nmsgs, 1<<10, false);
-    // s_bookends("lat", "RLAT", ZMQ_DEALER,  "SLAT", ZMQ_REP, nmsgs, 1<<10, false);
+    // s_bookends("lat", "RLAT", ZMQ_REQ,  "SLAT", ZMQ_ROUTER, nmsgs, 1<<10, false, verbose);
+    // s_bookends("lat", "RLAT", ZMQ_DEALER,  "SLAT", ZMQ_REP, nmsgs, 1<<10, false, verbose);
 
-    s_bookends("thr", "SEND", ZMQ_PUSH, "RECV", ZMQ_PULL, nmsgs, 1<<10, false);
-    s_bookends("thr", "STHR", ZMQ_PUSH, "RTHR", ZMQ_PULL, nmsgs, 1<<10, false);
+    s_bookends("thr", "SEND", ZMQ_PUSH, "RECV", ZMQ_PULL, nmsgs, 1<<10, false, verbose);
+    s_bookends("thr", "STHR", ZMQ_PUSH, "RTHR", ZMQ_PULL, nmsgs, 1<<10, false, verbose);
 
     //  @end
 
