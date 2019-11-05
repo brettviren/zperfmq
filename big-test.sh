@@ -74,7 +74,7 @@ do_plans () {
         if [ "$thr" = "cthr" ] ; then
             continue
         fi
-        for batch in 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536
+        for batch in 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144
         do
             do_one_plan zperf-plan-${thr}-10-100-batch${batch}.json --batch $batch -t10 -j100 $targs -m ${thr} {1..17}
         done
@@ -88,7 +88,7 @@ do_plans () {
             continue
         fi
 
-        for batch in 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536
+        for batch in 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536 131072 262144
         do
             do_one_plan zperf-plan-${lat}-batch${batch}.json --batch $batch -t1 -j1 $largs -m ${lat} {1..17}
         done
@@ -184,19 +184,19 @@ do_plot_one () {
 do_note_plots () {
 
     # basic latency
-    zperf plot-cz-lat-cpu -o note-cz-lat-cpu-lo.pdf --msgsizes 1 2e4 --scale semilogx zperf-results-{c,z}lat-mtu9000.json
-    zperf plot-cz-lat-cpu -o note-cz-lat-cpu-hi.pdf --msgsizes 1e4 2e6 --scale semilogx zperf-results-{c,z}lat-mtu9000.json 
+    zperf plot-cz-lat-cpu -o note-cz-lat-cpu-lo.pdf --msgsizes 1 2e4 --scale semilogx zperf-results-{c,z}lat-mtu1500.json
+    zperf plot-cz-lat-cpu -o note-cz-lat-cpu-hi.pdf --msgsizes 1e4 2e6 --scale semilogx zperf-results-{c,z}lat-mtu1500.json 
 
     # basic throughput
-    zperf plot-cz-thr-cpu -o note-cz-thr-cpu-lo.pdf --msgsizes 1 2e3 --scale loglog zperf-results-{c,z}thr-10-100-mtu9000.json
-    zperf plot-cz-thr-cpu -o note-cz-thr-cpu-hi.pdf --msgsizes 1e3 1e9 --scale semilogx zperf-results-{c,z}thr-10-100-mtu9000.json 
+    zperf plot-cz-thr-cpu -o note-cz-thr-cpu-lo.pdf --msgsizes 1 2e3 --scale loglog zperf-results-{c,z}thr-1-1-mtu1500.json
+    zperf plot-cz-thr-cpu -o note-cz-thr-cpu-hi.pdf --msgsizes 1e3 1e9 --scale semilogx zperf-results-{c,z}thr-1-1-mtu1500.json 
 
     # look at batch throughput
-    zperf plot-zthr-batch --scale semilogx --msgsizes 512 1e9 -o zthr-batch-hi.pdf zperf-results-zthr-10-100-batch{64,128,256,512,1024,2048,4096,8192,16384,32768,65536}-mtu9000.json    
-    zperf plot-zthr-batch --scale loglog --msgsizes 1 1024 -o zthr-batch-lo.pdf zperf-results-zthr-10-100-batch{64,128,256,512,1024,2048,4096,8192,16384,32768,65536}-mtu9000.json
+    zperf plot-zthr-batch --scale semilogx --msgsizes 512 1e9 -o zthr-batch-hi.pdf zperf-results-zthr-10-100-batch{64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144}-mtu9000.json    
+    zperf plot-zthr-batch --scale loglog --msgsizes 1 1024 -o zthr-batch-lo.pdf zperf-results-zthr-10-100-batch{64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144}-mtu9000.json
 
     # look at batch latency
-    zperf plot-zlat-batch  --scale semilogx -o zlat-batch-all.pdf zperf-results-zlat-batch{64,128,256,512,1024,2048,4096,8192,16384,32768,65536}-mtu9000.json
+    zperf plot-zlat-batch  --scale semilogx -o zlat-batch-all.pdf zperf-results-zlat-batch{64,128,256,512,1024,2048,4096,8192,16384,32768,65536,131072,262144}-mtu9000.json
 
     
     return
